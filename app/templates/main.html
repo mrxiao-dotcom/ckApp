@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>交易系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h1>交易系统</h1>
+            <div class="user-info">
+                <span id="current-account"></span>
+                <button onclick="logout()">退出</button>
+            </div>
+        </div>
+        
+        <div class="account-tabs" id="account-tabs">
+            <!-- 账户标签页将通过JavaScript动态加载 -->
+        </div>
+        
+        <div class="content-container">
+            <div class="account-info">
+                <h2>账户信息</h2>
+                <div id="account-details">
+                    <!-- 账户详细信息将通过JavaScript动态加载 -->
+                </div>
+            </div>
+
+            <div class="positions-section">
+                <div class="section-header">
+                    <h2>持仓列表</h2>
+                    <button onclick="showConfigModal()">修改配置</button>
+                </div>
+                
+                <div id="positions-list" class="positions-list">
+                    <!-- 持仓列表将通过JavaScript动态加载 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 配置模态框 -->
+        <div id="config-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>策略组合配置</h2>
+                    <span class="close" onclick="closeConfigModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <!-- 组合选择部分 -->
+                    <div class="form-section">
+                        <h3>选择策略组合</h3>
+                        <div class="form-group">
+                            <label>组合名称</label>
+                            <select id="strategy-select">
+                                <option value="">请选择组合</option>
+                                <!-- 组合列表将通过JavaScript动态加载 -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 组合配置部分 -->
+                    <div class="form-section">
+                        <h3>资金配置</h3>
+                        <div class="form-group">
+                            <label>资金</label>
+                            <input type="number" id="config-money" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label>仓位</label>
+                            <input type="number" id="config-discount" step="0.01" min="0" max="1">
+                        </div>
+                    </div>
+
+                    <!-- 合约管理部分 -->
+                    <div class="form-section">
+                        <h3>组合品种管理</h3>
+                        <div class="search-box">
+                            <div class="search-input-group">
+                                <input type="text" id="contract-search" placeholder="搜索合约">
+                                <button onclick="addSearchedContract()" class="add-button">加入</button>
+                            </div>
+                            <div id="search-results" class="search-results"></div>
+                        </div>
+                        <div id="selected-contracts" class="selected-contracts">
+                            <!-- 已选合约将在这里显示 -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="saveConfig()">保存</button>
+                    <button onclick="closeConfigModal()" class="secondary-button">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新建策略组合模态框 -->
+        <div id="new-strategy-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>新建策略组合</h2>
+                    <span class="close" onclick="closeNewStrategyModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>组合标识</label>
+                        <input type="text" id="new-product-comb" placeholder="例如: A1, B2 等">
+                    </div>
+                    <div class="form-group">
+                        <label>组合名称</label>
+                        <input type="text" id="new-comb-name" placeholder="输入组合名称">
+                    </div>
+                    <div class="form-group">
+                        <label>添加合约</label>
+                        <div class="search-box">
+                            <input type="text" id="new-contract-search" 
+                                   placeholder="搜索合约或直接输入多个合约代码（用逗号分隔）">
+                            <div id="new-search-results" class="search-results"></div>
+                        </div>
+                        <div id="new-selected-contracts" class="selected-contracts">
+                            <!-- 已选合约将在这里显示 -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="createNewStrategy()">创建</button>
+                    <button onclick="closeNewStrategyModal()" class="secondary-button">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 

@@ -22,51 +22,38 @@ class DatabaseConnection:
         
     @contextmanager
     def get_connection(self):
-        attempt = 0
-        last_error = None
-        
-        while attempt < self.max_retries:
-            try:
-                # 获取数据库配置
-                db_config = self.get_db_config()
-                
-                # 创建数据库连接
-                connection = pymysql.connect(
-                    host=db_config['HOST'],
-                    user=db_config['USER'],
-                    password=db_config['PASSWORD'],
-                    database=db_config['NAME'],
-                    port=db_config['PORT'],
-                    charset='utf8mb4',
-                    cursorclass=pymysql.cursors.DictCursor,
-                    connect_timeout=5,    # 连接超时时间
-                    read_timeout=30,      # 读取超时时间
-                    write_timeout=30      # 写入超时时间
-                )
-                
-                try:
-                    yield connection
-                    connection.commit()  # 自动提交事务
-                except Exception as e:
-                    connection.rollback()  # 发生错误时回滚
-                    raise
-                finally:
-                    connection.close()
-                return  # 成功完成后退出循环
-                
-            except pymysql.Error as e:
-                last_error = e
-                attempt += 1
-                if attempt < self.max_retries:
-                    logger.warning(f"Database connection attempt {attempt} failed: {str(e)}")
-                    time.sleep(self.retry_delay * attempt)  # 指数退避
-                    continue
-                logger.error(f"All database connection attempts failed: {str(e)}")
-                raise
+        """获取数据库连接"""
+        connection = None
+        try:
+            # 获取数据库配置
+            db_config = self.get_db_config()
             
-            except Exception as e:
-                logger.error(f"Unexpected error during database operation: {str(e)}")
-                raise
+            # 创建数据库连接
+            connection = pymysql.connect(
+                host=db_config['HOST'],
+                user=db_config['USER'],
+                password=db_config['PASSWORD'],
+                database=db_config['NAME'],
+                port=db_config['PORT'],
+                charset='utf8mb4',
+                cursorclass=pymysql.cursors.DictCursor,
+                connect_timeout=5,
+                read_timeout=30,
+                write_timeout=30
+            )
+            
+            yield connection
+            connection.commit()  # 如果没有异常，提交事务
+            
+        except Exception as e:
+            if connection:
+                connection.rollback()  # 发生异常时回滚
+            logger.error(f"Database connection error: {str(e)}")
+            raise
+            
+        finally:
+            if connection:
+                connection.close()  # 确保连接被关闭
 
 class DatabaseManager:
     @staticmethod

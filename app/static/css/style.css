@@ -57,14 +57,21 @@ button:hover {
 }
 
 .main-container {
-    padding: 20px;
+    padding: 10px;
+    max-width: 100%;
 }
 
 .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
+    padding: 5px;
+}
+
+.header h1 {
+    font-size: 16px;
+    margin: 0;
 }
 
 .positions-list {
@@ -145,24 +152,31 @@ button:hover {
 
 .account-tabs {
     display: flex;
+    gap: 2px;
+    margin-bottom: 10px;
     overflow-x: auto;
-    background: white;
-    border-bottom: 1px solid #ddd;
-    margin-bottom: 20px;
+    padding: 0 5px;
 }
 
 .account-tab {
-    padding: 10px 20px;
-    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 12px;
     white-space: nowrap;
     border: none;
     background: none;
-    position: relative;
+    cursor: pointer;
+    color: #999;
+    transition: color 0.2s;
+}
+
+.account-tab:hover {
+    color: #666;
 }
 
 .account-tab.active {
-    color: #007bff;
-    font-weight: bold;
+    color: #1890ff;
+    font-weight: 500;
+    position: relative;
 }
 
 .account-tab.active::after {
@@ -172,7 +186,7 @@ button:hover {
     left: 0;
     right: 0;
     height: 2px;
-    background: #007bff;
+    background: #1890ff;
 }
 
 .content-container {
@@ -186,7 +200,12 @@ button:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 8px;
+}
+
+.section-header h2 {
+    font-size: 14px;
+    margin: 0;
 }
 
 .error-message {
@@ -227,10 +246,15 @@ button:hover {
 }
 
 .account-info {
-    background: white;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #ddd;
+}
+
+.account-info h2 {
+    font-size: 14px;
+    margin: 0 0 8px 0;
 }
 
 .account-details {
@@ -257,9 +281,9 @@ button:hover {
 }
 
 .positions-section {
-    background: white;
-    border-radius: 8px;
-    padding: 20px;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #ddd;
 }
 
 .positions-list {
@@ -301,9 +325,9 @@ button:hover {
 }
 
 .status-badge {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.9em;
+    padding: 2px 4px;
+    font-size: 11px;
+    border-radius: 2px;
 }
 
 .status-active {
@@ -735,4 +759,246 @@ button:hover {
 
 .add-button:hover {
     background: #218838;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.breakthrough-btn {
+    background-color: #1890ff;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+    width: auto !important;
+    min-width: fit-content;
+    flex-shrink: 0;
+}
+
+.breakthrough-btn:hover {
+    background-color: #40a9ff;
+}
+
+.breakthrough-content {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+    min-width: 0;
+}
+
+.tabs {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+    gap: 10px;
+}
+
+.tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: #666;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.tab.active {
+    color: #1890ff;
+    border-bottom: 2px solid #1890ff;
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+.back-button {
+    background: none;
+    border: none;
+    color: #1890ff;
+    cursor: pointer;
+    padding: 8px 16px;
+    font-size: 14px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-width: fit-content;
+}
+
+.back-button:hover {
+    color: #40a9ff;
+}
+
+.no-data {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+/* 品种筛��相关样式 */
+.filter-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.filter-conditions {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.range-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.range-inputs input {
+    width: 80px;
+    margin: 0;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 0;
+}
+
+.data-table-container {
+    overflow-x: auto;
+}
+
+.data-table {
+    font-size: 12px;
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 4px 6px;
+    text-align: left;
+    border: 1px solid #ddd;
+}
+
+.data-table th {
+    background: #f8f9fa;
+    font-weight: 500;
+}
+
+.data-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.checkbox-column {
+    width: 40px;
+}
+
+.action-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.primary-button {
+    background: #1890ff;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.primary-button:hover {
+    background: #40a9ff;
+}
+
+button {
+    width: auto;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* 持仓列表区域 */
+.positions-section {
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #ddd;
+}
+
+.positions-list {
+    margin-top: 10px;
+    font-size: 12px;  /* 设置基础字体大小 */
+}
+
+/* 持仓项目 */
+.position-item {
+    display: grid;
+    grid-template-columns: 2fr 2fr 1fr;
+    gap: 10px;  /* 减小间距 */
+    padding: 8px;  /* 减小内边距 */
+    border-bottom: 1px solid #eee;
+    align-items: center;
+}
+
+/* 持仓详情 */
+.position-details {
+    font-size: 12px;  /* 详情字体大小 */
+}
+
+/* 账户详情 */
+.account-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 12px;  /* 账户详情字体大小 */
+}
+
+.detail-item {
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.detail-item .label {
+    color: #666;
+    font-size: 12px;  /* 标签字体大小 */
+    margin-bottom: 4px;
+}
+
+.detail-item .value {
+    font-size: 12px;  /* 值的字体大小 */
+    font-weight: 500;
+}
+
+/* 状态标签 */
+.status-badge {
+    padding: 2px 4px;
+    font-size: 11px;
+    border-radius: 2px;
 } 

@@ -25,50 +25,42 @@ class AuthService:
 
     @staticmethod
     def create_session(user: User) -> str:
+        """创建用户会话并返回 JWT token"""
         try:
-            # 创建JWT token
-            expiration = datetime.utcnow() + timedelta(days=1)
+            # 生成过期时间
+            expires_at = datetime.utcnow() + timedelta(days=1)
+            
+            # 准备 JWT payload
+            payload = {
+                'user_id': user.id,
+                'exp': expires_at,
+                'iat': datetime.utcnow()
+            }
+            
+            # 使用 PyJWT 生成 token
             token = jwt.encode(
-                {
-                    'user_id': user.id,
-                    'server_id': user.current_server,
-                    'exp': expiration
-                },
-                current_app.config['SECRET_KEY'],
+                payload,
+                current_app.config['JWT_SECRET_KEY'],
                 algorithm='HS256'
             )
-
-            # 删除旧的会话
-            UserSession.query.filter_by(user_id=user.id, is_active=True).update({'is_active': False})
-
-            # 创建新会话
+            
+            # 创建会话记录
             session = UserSession(
                 user_id=user.id,
                 token=token,
-                server_id=user.current_server,
-                expires_at=expiration,
-                is_active=True
+                server_id=user.current_server or '',
+                expires_at=expires_at
             )
+            
             db.session.add(session)
             db.session.commit()
-
+            
             return token
+            
         except Exception as e:
+            logger.error(f"创建会话失败: {str(e)}")
             db.session.rollback()
-            # 如果出错，尝试创建一个不包含server_id的会话
-            try:
-                session = UserSession(
-                    user_id=user.id,
-                    token=token,
-                    expires_at=expiration,
-                    is_active=True
-                )
-                db.session.add(session)
-                db.session.commit()
-                return token
-            except Exception as e:
-                db.session.rollback()
-                raise
+            raise
 
     @staticmethod
     def validate_token(token: str) -> Optional[User]:
@@ -98,11 +90,16 @@ class AuthService:
             return None
 
     @staticmethod
-    def invalidate_session(token: str) -> None:
+    def invalidate_session(token: str) -> bool:
+        """使会话失效"""
         try:
             session = UserSession.query.filter_by(token=token).first()
             if session:
                 session.is_active = False
                 db.session.commit()
+                return True
+            return False
         except Exception as e:
-            db.session.rollback() 
+            logger.error(f"使会话失效失败: {str(e)}")
+            db.session.rollback()
+            return False 

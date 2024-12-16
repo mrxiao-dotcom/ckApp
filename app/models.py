@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import List, ClassVar, Optional
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String, ForeignKey, DateTime, Boolean, Integer
+from enum import Enum
 
 @dataclass
 class ProductInfo:
@@ -98,3 +99,85 @@ class UserSession(db.Model):
 @login_manager.user_loader
 def load_user(user_id: str) -> Optional[User]:
     return User.query.get(int(user_id)) 
+
+class PriceRange20d(db.Model):
+    """20日价格范围数据"""
+    __tablename__ = 'price_range_20d'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.String(20), nullable=False)
+    high_price_20d = db.Column(db.DECIMAL(20, 8), nullable=False)
+    low_price_20d = db.Column(db.DECIMAL(20, 8), nullable=False)
+    last_price = db.Column(db.DECIMAL(20, 8), nullable=False)
+    amplitude = db.Column(db.DECIMAL(20, 8), nullable=False)
+    position_ratio = db.Column(db.DECIMAL(20, 8), nullable=False)
+    volume_24h = db.Column(db.DECIMAL(20, 8), default=0)  # 添加新字段
+    update_date = db.Column(db.Date, nullable=False)
+    update_time = db.Column(db.DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+    
+    def __repr__(self):
+        return f'<PriceRange20d {self.symbol}>'
+
+class SyncStatus(str, Enum):
+    """同步状态枚举"""
+    WAITING = 'WAITING'      # 等待开仓
+    OPENED = 'OPENED'        # 已开仓
+    CLOSED = 'CLOSED'        # 已关闭
+
+    @classmethod
+    def from_string(cls, value: str) -> 'SyncStatus':
+        """从字符串创建枚举值"""
+        try:
+            return cls(value.upper())
+        except ValueError:
+            return cls.WAITING  # 默认值
+
+class MonitorList(db.Model):
+    """账户监控列表"""
+    __tablename__ = 'monitor_list'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.String(50), nullable=False, index=True)  # 账户ID
+    symbol = db.Column(db.String(20), nullable=False)  # 品种代码
+    
+    # 交易配置
+    allocated_money = db.Column(db.Numeric(20, 8), nullable=False)  # 分配资金
+    leverage = db.Column(db.Integer, nullable=False)  # 杠杆倍数
+    take_profit = db.Column(db.Numeric(20, 8), nullable=False)  # 止盈额
+    
+    # 状态控制
+    sync_status = db.Column(db.String(20), nullable=False, default='waiting')  # 同步状态
+    is_active = db.Column(db.Boolean, default=True)  # 是否激活
+    
+    # 时间记录
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # 创建时间
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)  # 更新时间
+    last_sync_time = db.Column(db.DateTime)  # 最后同步时间
+    
+    __table_args__ = (
+        db.UniqueConstraint('account_id', 'symbol', name='uix_account_symbol'),  # 确保每个账户的品种不重复
+    )
+    
+    def __repr__(self):
+        return f'<MonitorList {self.account_id}:{self.symbol}>'
+
+    def to_dict(self):
+        """转换为字典格式"""
+        return {
+            'id': self.id,
+            'account_id': self.account_id,
+            'symbol': self.symbol,
+            'allocated_money': float(self.allocated_money),
+            'leverage': self.leverage,
+            'take_profit': float(self.take_profit),
+            'sync_status': self.sync_status,  # 直接使用字符串值
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'last_sync_time': self.last_sync_time.isoformat() if self.last_sync_time else None
+        }
+
+    def update_status(self, sync_status: SyncStatus):
+        """更新同步状态"""
+        self.sync_status = sync_status
+        self.last_sync_time = datetime.utcnow()

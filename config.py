@@ -1,31 +1,34 @@
 import os
 from datetime import timedelta
 from urllib.parse import quote_plus
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key-here'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key'
     
     # 数据库配置
     DATABASES = {
         'server1': {
-            'HOST': '45.153.131.230',
-            'USER': 'root',
-            'PASSWORD': 'Xj774913@',
-            'NAME': 'autotrader',
-            'PORT': 3306
+            'HOST': os.environ.get('DB1_HOST', 'localhost'),
+            'USER': os.environ.get('DB1_USER', 'root'),
+            'PASSWORD': os.environ.get('DB1_PASSWORD', ''),
+            'NAME': os.environ.get('DB1_NAME', 'autotrader'),
+            'PORT': int(os.environ.get('DB1_PORT', 3306))
         },
         'server2': {
-            'HOST': '45.153.131.217',
-            'USER': 'root',
-            'PASSWORD': 'Xj774913@',
-            'NAME': 'localdb',
-            'PORT': 3306
+            'HOST': os.environ.get('DB2_HOST', 'localhost'),
+            'USER': os.environ.get('DB2_USER', 'root'),
+            'PASSWORD': os.environ.get('DB2_PASSWORD', ''),
+            'NAME': os.environ.get('DB2_NAME', 'localdb'),
+            'PORT': int(os.environ.get('DB2_PORT', 3306))
         }
     }
     
-    # 默认数据库配置（用于用户认证等）
-    DB_CONFIG = DATABASES['server1']
-    # 对特殊字符进行URL编码
+    # 默认数据库配置
+    DB_CONFIG = DATABASES['server2']
     ENCODED_PASSWORD = quote_plus(DB_CONFIG['PASSWORD'])
     SQLALCHEMY_DATABASE_URI = (
         f"mysql+pymysql://{DB_CONFIG['USER']}:{ENCODED_PASSWORD}"
@@ -49,6 +52,12 @@ class Config:
     
     # 服务器配置
     SERVERS = [
-        {"id": "1", "name": "服务器1", "url": "http://45.153.131.230:3306"},
-        {"id": "2", "name": "服务器2", "url": "http://45.153.131.217:3306"}
+        {"id": "1", "name": "服务器1", "url": f"http://{os.environ.get('DB1_HOST')}:{os.environ.get('DB1_PORT')}"},
+        {"id": "2", "name": "服务器2", "url": f"http://{os.environ.get('DB2_HOST')}:{os.environ.get('DB2_PORT')}"}
     ] 
+    
+    PERMANENT_SESSION_LIFETIME = timedelta(days=7)
+    
+    # 价格范围配置
+    PRICE_RANGE_DAYS = 20  # 价格范围的天数
+    PRICE_UPDATE_INTERVAL = 60  # 实时价格更新间隔（秒）

@@ -664,4 +664,31 @@ function makeDraggable(modalId) {
         
         el.style.transform = `translate(${xPos}px, ${yPos}px)`;
     }
+}
+
+// 修改 getCurrentAccount 函数
+function getCurrentAccount() {
+    // 使用全局变量 currentAccount
+    if (!currentAccount) {
+        return null;
+    }
+    
+    return {
+        id: currentAccount.acct_id,
+        serverInfo: {
+            serverId: localStorage.getItem('server_id'),
+            // 可以添加其他需要的服务器信息
+        }
+    };
+}
+
+// 修改 navigateToBreakthrough 函数
+function navigateToBreakthrough() {
+    const account = getCurrentAccount();
+    if (account) {
+        const serverInfo = encodeURIComponent(JSON.stringify(account.serverInfo));
+        window.location.href = `/breakthrough-trading?accountId=${account.id}&serverInfo=${serverInfo}`;
+    } else {
+        alert('请先选择账户');
+    }
 } 

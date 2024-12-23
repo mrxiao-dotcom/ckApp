@@ -1,13 +1,13 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app
 from flask_login import login_user, logout_user, login_required, current_user
+from datetime import datetime, timedelta
 from app import db
-from app.models import User, PriceRange20d, MonitorList, SyncStatus
+from app.models import User, PriceRange20d, MonitorList, SyncStatus, OscillationMonitor
 from app.auth import AuthService
 from app.data_manager import DataManager
 from app.database import DatabaseManager
 import logging
 from typing import Optional
-from datetime import date
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -23,34 +23,51 @@ def index():
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        server_id = request.form.get('server')
-        
-        user = AuthService.authenticate_user(username, password, server_id)
-        if user:
-            if not user.account_info_list:
-                return jsonify({'error': '该用户没有可用的账户'}), 401
+        try:
+            # 支持 JSON 格式的请求
+            data = request.json
+            username = data.get('username')
+            password = data.get('password')
+            server_id = data.get('server')
+            
+            logger.info(f"尝试登录: username={username}, server_id={server_id}")
+            
+            if not all([username, password, server_id]):
+                return jsonify({'error': '请填写所有必填字段'}), 400
+            
+            user = AuthService.authenticate_user(username, password, server_id)
+            if user:
+                login_user(user)
+                user.update_last_login()
+                token = AuthService.create_session(user)
                 
-            login_user(user)
-            user.update_last_login()
-            token = AuthService.create_session(user)
+                # 如果用户没有账户，返回空列表
+                accounts = []
+                if user.account_info_list:
+                    accounts = [
+                        {
+                            'acct_id': acc.acct_id,
+                            'acct_name': acc.acct_name,
+                            'email': acc.email,
+                            'state': acc.state,
+                            'status': acc.status
+                        }
+                        for acc in user.account_info_list
+                    ]
+                
+                logger.info(f"用户 {username} 登录成功")
+                return jsonify({
+                    'token': token,
+                    'accounts': accounts,
+                    'hasAccounts': bool(accounts)
+                })
+                
+            logger.warning(f"用户 {username} 登录失败: 用户名或密码错误")
+            return jsonify({'error': '用户名或密码错误'}), 401
             
-            return jsonify({
-                'token': token,
-                'accounts': [
-                    {
-                        'acct_id': acc.acct_id,
-                        'acct_name': acc.acct_name,
-                        'email': acc.email,
-                        'state': acc.state,
-                        'status': acc.status
-                    }
-                    for acc in user.account_info_list
-                ]
-            })
-            
-        return jsonify({'error': '用户名或密码错误'}), 401
+        except Exception as e:
+            logger.error(f"登录过程发生错误: {str(e)}")
+            return jsonify({'error': '登录失败，请重试'}), 500
             
     return render_template('login.html', config=current_app.config)
 
@@ -323,17 +340,18 @@ def save_monitor_symbols():
     try:
         data = request.json
         account_id = data.get('accountId')
+        strategy_type = data.get('strategy_type', 'break')  # 默认为突破策略
         symbols_data = data.get('symbols', [])
         
         if not account_id:
             return jsonify({'error': '未指定账户ID'}), 400
             
         try:
-            # 先检查是否存在
             for symbol_data in symbols_data:
                 existing = MonitorList.query.filter_by(
                     account_id=account_id,
-                    symbol=symbol_data['symbol']
+                    symbol=symbol_data['symbol'],
+                    strategy_type=strategy_type
                 ).first()
                 
                 if existing:
@@ -348,6 +366,7 @@ def save_monitor_symbols():
                     monitor_item = MonitorList(
                         account_id=account_id,
                         symbol=symbol_data['symbol'],
+                        strategy_type=strategy_type,
                         allocated_money=symbol_data['allocated_money'],
                         leverage=symbol_data['leverage'],
                         take_profit=symbol_data['take_profit'],
@@ -359,8 +378,7 @@ def save_monitor_symbols():
             db.session.commit()
             return jsonify({
                 'status': 'success',
-                'message': '保存成功',
-                'count': len(symbols_data)
+                'message': '保存成功'
             })
             
         except Exception as e:
@@ -393,11 +411,6 @@ def get_price_ranges():
         # 构建查询
         query = PriceRange20d.query
 
-        # 获取最新日期的数据
-        latest_date = db.session.query(db.func.max(PriceRange20d.update_date)).scalar()
-        if latest_date:
-            query = query.filter(PriceRange20d.update_date == latest_date)
-        
         # 应用筛选条件
         if min_amplitude is not None:
             query = query.filter(PriceRange20d.amplitude >= min_amplitude)
@@ -414,7 +427,7 @@ def get_price_ranges():
         if search:
             query = query.filter(PriceRange20d.symbol.ilike(f'%{search}%'))
 
-        # 获取分页数据
+        # 获取分页数
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         price_ranges = pagination.items
 
@@ -449,12 +462,14 @@ def get_price_ranges():
 @login_required
 def get_monitor_symbols(account_id):
     """获取账户的监控品种列表"""
+    strategy_type = request.args.get('strategy_type', 'break')  # 默认取突破策略
     try:
         current_app.logger.info(f"获取账户 {account_id} 的监控列表")
         
         # 查询该账户的所有监控品种
         monitor_items = MonitorList.query.filter_by(
             account_id=account_id,
+            strategy_type=strategy_type,
             is_active=True
         ).all()
         
@@ -473,7 +488,7 @@ def get_monitor_symbols(account_id):
                 PriceRange20d.symbol.in_(symbols)
             ).all()
             
-            # 转换为字典以便快速查找
+            # 转换为字典以便���速查找
             price_data = {pr.symbol: pr for pr in price_ranges}
             
             # 组合数据
@@ -553,7 +568,7 @@ def monitor_list():
         prices = {record.symbol: record for record in price_records}
         logger.info(f"价格数据包含的品种: {list(prices.keys())}")
         
-        # 组织数据
+        # 织数据
         monitor_data = []
         for monitor in monitors:
             logger.info(f"处理监控记录: {monitor.symbol}")
@@ -597,9 +612,260 @@ def toggle_monitor_active(id):
         monitor = MonitorList.query.get_or_404(id)
         monitor.is_active = not monitor.is_active
         db.session.commit()
-        logger.info(f"成功切换监控记录 {monitor.symbol} 的激活状态为: {monitor.is_active}")
+        logger.info(f"成功切换监控记录 {monitor.symbol} 的激活��态为: {monitor.is_active}")
         return jsonify({'success': True})
     except Exception as e:
         logger.error(f"切换监控记录激活状态失败: {str(e)}")
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)})
+
+@main_bp.route('/oscillation-trading')
+@login_required
+def oscillation_trading():
+    """震荡交易页面"""
+    account_id = request.args.get('accountId')
+    server_info = request.args.get('serverInfo')
+    return render_template('oscillation.html', account_id=account_id, server_info=server_info)
+
+@main_bp.route('/api/save_oscillation_monitor', methods=['POST'])
+@login_required
+def save_oscillation_monitor():
+    """保存震荡交易监控记录"""
+    try:
+        data = request.json
+        account_id = data.get('accountId')
+        symbols_data = data.get('symbols', [])
+        
+        if not account_id:
+            return jsonify({'error': '未指定账户ID'}), 400
+            
+        try:
+            for symbol_data in symbols_data:
+                existing = OscillationMonitor.query.filter_by(
+                    account_id=account_id,
+                    symbol=symbol_data['symbol']
+                ).first()
+                
+                if existing:
+                    # 更新现有记录
+                    existing.allocated_money = symbol_data['allocated_money']
+                    existing.leverage = symbol_data['leverage']
+                    existing.take_profit = symbol_data['take_profit']
+                    existing.sync_status = 'waiting'
+                    existing.is_active = True
+                else:
+                    # 创建新记录
+                    monitor_item = OscillationMonitor(
+                        account_id=account_id,
+                        symbol=symbol_data['symbol'],
+                        allocated_money=symbol_data['allocated_money'],
+                        leverage=symbol_data['leverage'],
+                        take_profit=symbol_data['take_profit'],
+                        sync_status='waiting',
+                        is_active=True
+                    )
+                    db.session.add(monitor_item)
+            
+            db.session.commit()
+            return jsonify({
+                'status': 'success',
+                'message': '保存成功'
+            })
+            
+        except Exception as e:
+            db.session.rollback()
+            raise
+            
+    except Exception as e:
+        logger.error(f"保存监控列表失败: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@main_bp.route('/api/oscillation_monitor/<account_id>', methods=['GET'])
+@login_required
+def get_oscillation_monitor(account_id):
+    """获取账户的震荡交易监控列表"""
+    try:
+        logger.info(f"获取账户 {account_id} 的震荡交易监控列表")
+        
+        # 查询该账户的所有监控品种
+        monitor_items = OscillationMonitor.query.filter_by(
+            account_id=str(account_id),  # 确保 account_id 是字符串类型
+            is_active=True
+        ).all()
+        
+        # 获取这些品种的最新价格范围数据
+        latest_date = db.session.query(db.func.max(PriceRange20d.update_date)).scalar()
+        
+        if latest_date:
+            symbols = [item.symbol for item in monitor_items]
+            if symbols:  # 只在有监控品种时查询价格数据
+                price_ranges = PriceRange20d.query.filter(
+                    PriceRange20d.update_date == latest_date,
+                    PriceRange20d.symbol.in_(symbols)
+                ).all()
+                
+                # 转换为字典以便快速查找
+                price_data = {pr.symbol: pr for pr in price_ranges}
+                
+                # 组合数据
+                data = [{
+                    **item.to_dict(),  # 包含监控列表的所有字段
+                    'high_price_20d': float(price_data[item.symbol].high_price_20d) if item.symbol in price_data else None,
+                    'low_price_20d': float(price_data[item.symbol].low_price_20d) if item.symbol in price_data else None,
+                    'last_price': float(price_data[item.symbol].last_price) if item.symbol in price_data else None,
+                    'amplitude': float(price_data[item.symbol].amplitude) if item.symbol in price_data else None,
+                    'position_ratio': float(price_data[item.symbol].position_ratio) if item.symbol in price_data else None
+                } for item in monitor_items]
+            else:
+                data = []  # 如果没有监控品种，返回空列表
+        else:
+            data = [item.to_dict() for item in monitor_items]
+
+        logger.info(f"成功获取震荡交易监控列表，共 {len(monitor_items)} 个品种")
+        return jsonify({
+            'status': 'success',
+            'data': data
+        })
+        
+    except Exception as e:
+        logger.error(f"获取震荡交易监控列表失败: {str(e)}")
+        logger.exception("详细错误信息：")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@main_bp.route('/api/oscillation_monitor/<int:id>/toggle_active', methods=['POST'])
+@login_required
+def toggle_oscillation_monitor_active(id):
+    """切换震荡交易监控记录的激活状态"""
+    try:
+        monitor = OscillationMonitor.query.get_or_404(id)
+        monitor.is_active = not monitor.is_active
+        db.session.commit()
+        logger.info(f"成功切换震荡交易监控记录 {monitor.symbol} 的激活状态为: {monitor.is_active}")
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"切换震荡交易监控记录激活状态失败: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)})
+
+@auth_bp.route('/register', methods=['POST'])
+def register():
+    """注册新用户"""
+    try:
+        data = request.json
+        username = data.get('username')
+        password = data.get('password')
+        
+        if not username or not password:
+            return jsonify({'error': '用户名和密码不能为空'}), 400
+            
+        # 检查用户名是否已存在
+        if User.query.filter_by(username=username).first():
+            return jsonify({'error': '用户名已存在'}), 400
+            
+        # 创建新用户
+        user = User(username=username, email=f"{username}@example.com")  # 临时使用用户名作为邮箱
+        user.set_password(password)
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': '注册成功'
+        })
+        
+    except Exception as e:
+        logger.error(f"用户注册失败: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@main_bp.route('/api/kline/<symbol>')
+@login_required
+def get_kline_data(symbol):
+    """获取K线数据"""
+    try:
+        server_id = request.headers.get('X-Server-ID')
+        if not server_id:
+            return jsonify({'status': 'error', 'message': '缺少服务器信息'}), 400
+            
+        # 获取账户信息
+        account_id = request.args.get('accountId')
+        if not account_id:
+            return jsonify({'status': 'error', 'message': '缺少账户信息'}), 400
+            
+        # 创建数据管理器并初始化API凭证
+        data_manager = DataManager(server_id)
+        account_info = data_manager.get_account_info(account_id)
+        if not account_info:
+            return jsonify({'status': 'error', 'message': '获取账户信息失败'}), 400
+            
+        # 设置账户信息
+        data_manager.account_info = account_info
+        
+        # 获取K线数据
+        candlesticks = data_manager.get_kline_data(symbol, '1d', 21)
+        if not candlesticks:
+            return jsonify({'status': 'error', 'message': '获取K线数据失败'}), 400
+            
+        # 处理数据
+        dates = []
+        k_data = []
+        volumes = []
+        closes = []
+        
+        for k in candlesticks:
+            # 使用对象属性而不是下标访问
+            timestamp = datetime.fromtimestamp(k.t).strftime('%Y-%m-%d')
+            dates.append(timestamp)
+            k_data.append([
+                float(k.o),  # 开盘价
+                float(k.c),  # 收盘价
+                float(k.h),  # 最高价
+                float(k.l)   # 最低价
+            ])
+            volumes.append(float(k.v))  # 成交量
+            closes.append(float(k.c))   # 收盘价
+            
+        # 计算均线
+        ma5 = calculate_ma(closes, 5)
+        ma10 = calculate_ma(closes, 10)
+        ma20 = calculate_ma(closes, 20)
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'dates': dates,
+                'klineData': k_data,
+                'volumes': volumes,
+                'ma5': ma5,
+                'ma10': ma10,
+                'ma20': ma20
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"获取K线数据失败: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+def calculate_ma(data, period):
+    """计算移动平均线"""
+    result = []
+    for i in range(len(data)):
+        if i < period - 1:
+            result.append(None)
+        else:
+            val = sum(data[i - period + 1:i + 1]) / period
+            result.append(val)
+    return result

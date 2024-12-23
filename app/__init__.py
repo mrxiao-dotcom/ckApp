@@ -5,7 +5,6 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
-from sqlalchemy import String, ForeignKey
 from config import Config
 import sys
 import codecs
@@ -101,7 +100,7 @@ def create_app(config_class=Config):
     app.register_blueprint(auth_bp, url_prefix='/auth')
 
     # 注册CLI命令
-    from app import cli
+    import cli
     cli.init_app(app)
 
     return app

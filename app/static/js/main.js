@@ -580,7 +580,7 @@ async function createNewStrategy() {
         
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.error || '创建失败');
+            throw new Error(error.error || '创���失败');
         }
         
         closeNewStrategyModal();
@@ -688,6 +688,16 @@ function navigateToBreakthrough() {
     if (account) {
         const serverInfo = encodeURIComponent(JSON.stringify(account.serverInfo));
         window.location.href = `/breakthrough-trading?accountId=${account.id}&serverInfo=${serverInfo}`;
+    } else {
+        alert('请先选择账户');
+    }
+}
+
+function navigateToOscillation() {
+    const account = getCurrentAccount();
+    if (account) {
+        const serverInfo = encodeURIComponent(JSON.stringify(account.serverInfo));
+        window.location.href = `/oscillation-trading?accountId=${account.id}&serverInfo=${serverInfo}`;
     } else {
         alert('请先选择账户');
     }

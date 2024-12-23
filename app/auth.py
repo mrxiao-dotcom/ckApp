@@ -13,15 +13,32 @@ class AuthService:
     @staticmethod
     def authenticate_user(username: str, password: str, server_id: str) -> Optional[User]:
         """验证用户并返回用户对象"""
-        user = User.query.filter_by(username=username).first()
-        if user and user.check_password(password):
+        try:
+            logger.info(f"验证用户: username={username}, server_id={server_id}")
+            
+            user = User.query.filter_by(username=username).first()
+            if not user:
+                logger.warning(f"用户不存在: {username}")
+                return None
+            
+            if not user.check_password(password):
+                logger.warning(f"密码错误: {username}")
+                return None
+            
             # 获取用户在指定服务器上的所有账户信息
             account_info_list = DatabaseManager.get_account_info(server_id, username)
-            if account_info_list:
-                user.account_info_list = account_info_list
-                user.current_server = server_id
-                return user
-        return None
+            logger.info(f"获取到账户信息: {len(account_info_list) if account_info_list else 0} 个账户")
+            
+            # 即使没有账户信息也允许登录
+            user.account_info_list = account_info_list or []
+            user.current_server = server_id
+            
+            logger.info(f"用户验证成功: {username}")
+            return user
+            
+        except Exception as e:
+            logger.error(f"用户认证失败: {str(e)}")
+            return None
 
     @staticmethod
     def create_session(user: User) -> str:

@@ -66,6 +66,7 @@ class User(UserMixin, db.Model):
         self.email = email
         self.account_info_list = []
         self.current_server = None
+        self.is_active = True
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -139,6 +140,7 @@ class MonitorList(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     account_id = db.Column(db.String(50), nullable=False, index=True)  # 账户ID
     symbol = db.Column(db.String(20), nullable=False)  # 品种代码
+    strategy_type = db.Column(db.String(20), nullable=False, default='break')  # 策略类型:break/oscillation
     
     # 交易配置
     allocated_money = db.Column(db.Numeric(20, 8), nullable=False)  # 分配资金
@@ -146,6 +148,7 @@ class MonitorList(db.Model):
     take_profit = db.Column(db.Numeric(20, 8), nullable=False)  # 止盈额
     
     # 状态控制
+    position_side = db.Column(db.String(10))  # 当前持仓方向：long/short/none
     sync_status = db.Column(db.String(20), nullable=False, default='waiting')  # 同步状态
     is_active = db.Column(db.Boolean, default=True)  # 是否激活
     
@@ -155,11 +158,11 @@ class MonitorList(db.Model):
     last_sync_time = db.Column(db.DateTime)  # 最后同步时间
     
     __table_args__ = (
-        db.UniqueConstraint('account_id', 'symbol', name='uix_account_symbol'),  # 确保每个账户的品种不重复
+        db.UniqueConstraint('account_id', 'symbol', 'strategy_type', name='uix_account_symbol_strategy'),
     )
     
     def __repr__(self):
-        return f'<MonitorList {self.account_id}:{self.symbol}>'
+        return f'<MonitorList {self.account_id}:{self.symbol}:{self.strategy_type}>'
 
     def to_dict(self):
         """转换为字典格式"""
@@ -167,10 +170,12 @@ class MonitorList(db.Model):
             'id': self.id,
             'account_id': self.account_id,
             'symbol': self.symbol,
+            'strategy_type': self.strategy_type,
             'allocated_money': float(self.allocated_money),
             'leverage': self.leverage,
             'take_profit': float(self.take_profit),
-            'sync_status': self.sync_status,  # 直接使用字符串值
+            'position_side': self.position_side,
+            'sync_status': self.sync_status,
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
@@ -181,3 +186,50 @@ class MonitorList(db.Model):
         """更新同步状态"""
         self.sync_status = sync_status
         self.last_sync_time = datetime.utcnow()
+
+class OscillationMonitor(db.Model):
+    """震荡交易监控列表"""
+    __tablename__ = 'oscillation_monitor'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.String(50), nullable=False, index=True)  # 账户ID
+    symbol = db.Column(db.String(20), nullable=False)  # 品种代码
+    
+    # 交易配置
+    allocated_money = db.Column(db.Numeric(20, 8), nullable=False)  # 分配资金
+    leverage = db.Column(db.Integer, nullable=False)  # 杠杆倍数
+    take_profit = db.Column(db.Numeric(20, 8), nullable=False)  # 止盈额
+    
+    # 状态控制
+    position_side = db.Column(db.String(10))  # 当前持仓方向：long/short/none
+    sync_status = db.Column(db.String(20), nullable=False, default='waiting')  # 同步状态
+    is_active = db.Column(db.Boolean, default=True)  # 是否激活
+    
+    # 时间记录
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # 创建时间
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)  # 更新时间
+    last_sync_time = db.Column(db.DateTime)  # 最后同步时间
+    
+    __table_args__ = (
+        db.UniqueConstraint('account_id', 'symbol', name='uix_oscillation_account_symbol'),
+    )
+    
+    def __repr__(self):
+        return f'<OscillationMonitor {self.account_id}:{self.symbol}>'
+
+    def to_dict(self):
+        """转换为字典格式"""
+        return {
+            'id': self.id,
+            'account_id': self.account_id,
+            'symbol': self.symbol,
+            'allocated_money': float(self.allocated_money),
+            'leverage': self.leverage,
+            'take_profit': float(self.take_profit),
+            'position_side': self.position_side,
+            'sync_status': self.sync_status,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'last_sync_time': self.last_sync_time.isoformat() if self.last_sync_time else None
+        }

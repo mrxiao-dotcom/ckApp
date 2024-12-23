@@ -45,46 +45,56 @@ class PositionSyncer:
         """检查等待开仓的仓位"""
         with self.app.app_context():
             try:
-                # 获取等待开仓的监控记录
-                monitors = MonitorList.query.filter_by(
-                    sync_status='waiting',
-                    is_active=True
-                ).all()
-                
-                if not monitors:
-                    logger.info("没有等待开仓的记录")
-                    return
-                
-                logger.info(f"找到 {len(monitors)} 条等待开仓的记录")
-                
-                # 获取最新价格数据
-                latest_date = db.session.query(db.func.max(PriceRange20d.update_date)).scalar()
-                if not latest_date:
-                    logger.warning("未找到价格数据")
-                    return
-                
-                # 获取3分钟前的时间
-                three_mins_ago = datetime.now() - timedelta(minutes=3)
-                
-                # 获取价格数据
-                price_records = PriceRange20d.query.filter(
-                    PriceRange20d.update_date == latest_date,
-                    PriceRange20d.update_time >= three_mins_ago
-                ).all()
-                
-                # 转换为字典以便快速查找
-                price_data = {pr.symbol: pr for pr in price_records}
-                
-                # 处理每个等待开仓的记录
-                for monitor in monitors:
-                    self.process_waiting_position(monitor, price_data)
+                # 分别处理突破策略和震荡策略
+                self.check_breakthrough_positions()
+                self.check_oscillation_positions()
                     
             except Exception as e:
                 logger.error(f"检查等待开仓失败: {str(e)}")
                 logger.exception("详细错误信息：")
-    
-    def process_waiting_position(self, monitor: MonitorList, price_data: Dict):
-        """处理单个等待开仓的记录"""
+
+    def check_breakthrough_positions(self):
+        """检查突破策略的等待开仓记录"""
+        try:
+            # 获取等待开仓的突破策略监控记录
+            monitors = MonitorList.query.filter_by(
+                sync_status='waiting',
+                is_active=True,
+                strategy_type='break'  # 只处理突破策略
+            ).all()
+            
+            if not monitors:
+                logger.info("没有等待开仓的突破策略记录")
+                return
+            
+            logger.info(f"找到 {len(monitors)} 条等待开仓的突破策略记录")
+            
+            # 获取最新价格数据
+            latest_date = db.session.query(db.func.max(PriceRange20d.update_date)).scalar()
+            if not latest_date:
+                logger.warning("未找到价格数据")
+                return
+            
+            # 获取3分钟内的价格数据
+            three_mins_ago = datetime.now() - timedelta(minutes=3)
+            price_records = PriceRange20d.query.filter(
+                PriceRange20d.update_date == latest_date,
+                PriceRange20d.update_time >= three_mins_ago
+            ).all()
+            
+            # 转换为字典以便快速查找
+            price_data = {pr.symbol: pr for pr in price_records}
+            
+            # 处理每个等待开仓的记录
+            for monitor in monitors:
+                self.process_breakthrough_position(monitor, price_data)
+                
+        except Exception as e:
+            logger.error(f"检查突破策略等待开仓失败: {str(e)}")
+            logger.exception("详细错误信息：")
+
+    def process_breakthrough_position(self, monitor: MonitorList, price_data: Dict):
+        """处理单个突破策略的等待开仓记录"""
         try:
             price_info = price_data.get(monitor.symbol)
             if not price_info:
@@ -97,9 +107,6 @@ class PositionSyncer:
                 logger.error(f"未找到账户 {monitor.account_id} 的API信息")
                 return
             
-            # 初始化API
-            self.data_manager.init_api(account_info)
-            
             # 检查开仓条件
             last_price = Decimal(str(price_info.last_price))
             high_price = Decimal(str(price_info.high_price_20d))
@@ -107,15 +114,92 @@ class PositionSyncer:
             
             if last_price > high_price:
                 # 开多
-                logger.info(f"开多信号 - {monitor.symbol}")
-                self.open_position(monitor, account_info, 'long')
+                logger.info(f"突破策略开多信号 - {monitor.symbol}")
+                if self.open_position(monitor, account_info, 'long'):
+                    monitor.position_side = 'long'  # 记录开仓方向
+                    db.session.commit()
             elif last_price < low_price:
                 # 开空
-                logger.info(f"开空信号 - {monitor.symbol}")
-                self.open_position(monitor, account_info, 'short')
+                logger.info(f"突破策略开空信号 - {monitor.symbol}")
+                if self.open_position(monitor, account_info, 'short'):
+                    monitor.position_side = 'short'  # 记录开仓方向
+                    db.session.commit()
                 
         except Exception as e:
-            logger.error(f"处理 {monitor.symbol} 失败: {str(e)}")
+            logger.error(f"处理突破策略 {monitor.symbol} 失败: {str(e)}")
+
+    def check_oscillation_positions(self):
+        """检查震荡策略的等待开仓记录"""
+        try:
+            # 获取等待开仓的震荡策略监控记录
+            monitors = MonitorList.query.filter_by(
+                sync_status='waiting',
+                is_active=True,
+                strategy_type='oscillation'  # 只处理震荡策略
+            ).all()
+            
+            if not monitors:
+                logger.info("没有等待开仓的震荡策略记录")
+                return
+            
+            logger.info(f"找到 {len(monitors)} 条等待开仓的震荡策略记录")
+            
+            # 获取最新价格数据
+            latest_date = db.session.query(db.func.max(PriceRange20d.update_date)).scalar()
+            if not latest_date:
+                logger.warning("未找到价格数据")
+                return
+            
+            # 获取3分钟内的价格数据
+            three_mins_ago = datetime.now() - timedelta(minutes=3)
+            price_records = PriceRange20d.query.filter(
+                PriceRange20d.update_date == latest_date,
+                PriceRange20d.update_time >= three_mins_ago
+            ).all()
+            
+            # 转换为字典以便快速查找
+            price_data = {pr.symbol: pr for pr in price_records}
+            
+            # 处理每个等待开仓的记录
+            for monitor in monitors:
+                self.process_oscillation_position(monitor, price_data)
+                
+        except Exception as e:
+            logger.error(f"检查震荡策略等待开仓失败: {str(e)}")
+            logger.exception("详细错误信息：")
+
+    def process_oscillation_position(self, monitor: MonitorList, price_data: Dict):
+        """处理单个震荡策略的等待开仓记录"""
+        try:
+            price_info = price_data.get(monitor.symbol)
+            if not price_info:
+                logger.warning(f"未找到 {monitor.symbol} 的价格数据")
+                return
+            
+            # 获取账户API信息
+            account_info = self.data_manager.get_account_info(monitor.account_id)
+            if not account_info:
+                logger.error(f"未找到账户 {monitor.account_id} 的API信息")
+                return
+            
+            # 检查开仓条件
+            position_ratio = float(price_info.position_ratio)
+            
+            if position_ratio < 0.5:
+                # 开多
+                logger.info(f"震荡策略开多信号 - {monitor.symbol} (position_ratio={position_ratio})")
+                if self.open_position(monitor, account_info, 'long'):
+                    monitor.position_side = 'long'  # 记录开仓方向
+                    db.session.commit()
+            elif position_ratio > 0.5:
+                # 开空
+                logger.info(f"震荡策略开空信号 - {monitor.symbol} (position_ratio={position_ratio})")
+                if self.open_position(monitor, account_info, 'short'):
+                    monitor.position_side = 'short'  # 记录开仓方向
+                    db.session.commit()
+                
+        except Exception as e:
+            logger.error(f"处理震荡策略 {monitor.symbol} 失败: {str(e)}")
     
     def check_opened_positions(self):
         """检查已开仓的仓位"""
@@ -172,11 +256,36 @@ class PositionSyncer:
     def check_take_profit(self, monitor: MonitorList):
         """检查止盈"""
         try:
-            # 获取账户API信息
+            # 获取账���API信息
             account_info = self.data_manager.get_account_info(monitor.account_id)
             if not account_info:
                 logger.error(f"未找到账户 {monitor.account_id} 的API信息")
                 return
+            
+            # 获取持仓信息
+            positions = self.data_manager.get_account_positions(account_info)
+            if not positions:
+                logger.warning(f"没有找到任何持仓")
+                return
+            
+            # 查找对应的持仓
+            position = next((p for p in positions if p.symbol == monitor.symbol), None)
+            if not position:
+                logger.warning(f"没有找到 {monitor.symbol} 的持仓")
+                return
+            
+            # 如果持仓方向为空，从持仓信息中补充
+            if not monitor.position_side:
+                # 获取原始持仓信息以确定方向
+                raw_positions = self.data_manager._get_account_positions(account_info)
+                if raw_positions:
+                    raw_position = next((p for p in raw_positions if p.contract == f"{monitor.symbol}_USDT"), None)
+                    if raw_position:
+                        # 根据持仓数量判断方向
+                        size = float(raw_position.size)
+                        monitor.position_side = 'long' if size > 0 else 'short'
+                        db.session.commit()
+                        logger.info(f"补充持仓方向: {monitor.symbol} -> {monitor.position_side}")
             
             # 获取未实现盈利
             unrealized_pnl = self.data_manager.get_position_pnl(
@@ -188,9 +297,16 @@ class PositionSyncer:
                 logger.warning(f"获取 {monitor.symbol} 未实现盈利失败")
                 return
             
+            # 记录当前盈亏状态
+            logger.info(f"检查止盈 {monitor.symbol} - "
+                       f"策略类型: {monitor.strategy_type}, "
+                       f"持仓方向: {monitor.position_side}, "
+                       f"未实现盈利: {unrealized_pnl:+.2f}, "
+                       f"止盈目标: {float(monitor.take_profit):.2f}")
+            
             # 检查是否达到止盈条件
             if unrealized_pnl >= float(monitor.take_profit):
-                logger.info(f"{monitor.symbol} 达到止盈条件")
+                logger.info(f"{monitor.symbol} 达到止盈条件，执行平仓")
                 self.close_position(monitor, account_info)
                 
         except Exception as e:
@@ -199,7 +315,7 @@ class PositionSyncer:
     def close_position(self, monitor: MonitorList, account_info: dict):
         """平仓"""
         try:
-            # 调用交易所API平仓
+            # 调用交易所API平��
             success = self.data_manager.close_position(
                 account_info=account_info,
                 symbol=monitor.symbol
@@ -265,100 +381,79 @@ class PositionSyncer:
 
 def run_sync_once():
     """执行一次同步检查"""
-    try:
-        logger.info("开始同步检查")
-        syncer = PositionSyncer()
-        syncer.init_connections()
-        
-        with syncer.app.app_context():
-            # 获取所有激活的监控记录，按账户分组
-            monitors = MonitorList.query.filter_by(is_active=True).all()
-            if not monitors:
-                logger.info("没有监控记录")
+    logger.info("开始同步检查")
+    
+    syncer = PositionSyncer()
+    syncer.init_connections()
+    
+    with syncer.app.app_context():
+        try:
+            # 获取所有账户
+            accounts = syncer.data_manager.get_all_accounts()
+            if not accounts:
+                logger.warning("未找到任何账户")
                 return
-            
-            # 按账户ID分组
-            accounts_monitors = {}
-            for monitor in monitors:
-                if monitor.account_id not in accounts_monitors:
-                    accounts_monitors[monitor.account_id] = []
-                accounts_monitors[monitor.account_id].append(monitor)
-            
-            # 获取最新价格数据
-            latest_date = db.session.query(db.func.max(PriceRange20d.update_date)).scalar()
-            if not latest_date:
-                logger.warning("未找到价格数据")
-                return
-            
-            # 获取3分钟内的价格数据
-            three_mins_ago = datetime.now() - timedelta(minutes=3)
-            price_records = PriceRange20d.query.filter(
-                PriceRange20d.update_date == latest_date,
-                PriceRange20d.update_time >= three_mins_ago
-            ).all()
-            
-            # 转换为字典以便快速查找
-            price_data = {pr.symbol: pr for pr in price_records}
             
             # 处理每个账户
-            for account_id, account_monitors in accounts_monitors.items():
+            for account_id in accounts:
                 try:
-                    logger.info(f"处理账户 {account_id}")
-                    
                     # 获取账户API信息
                     account_info = syncer.data_manager.get_account_info(account_id)
                     if not account_info:
                         logger.error(f"未找到账户 {account_id} 的API信息")
                         continue
                     
-                    # 初始化API
-                    syncer.data_manager.init_api(account_info)
-                    
-                    # 获取当前持仓
+                    # 获取账户当前持仓
                     current_positions = syncer.data_manager.get_account_positions(account_info)
-                    current_position_symbols = {pos.symbol for pos in current_positions}
                     
-                    # 处理每个监控品种
-                    for monitor in account_monitors:
-                        try:
-                            # 获取价格数据
-                            price_info = price_data.get(monitor.symbol)
-                            if not price_info:
-                                logger.warning(f"未找到 {monitor.symbol} 的价格数据")
-                                continue
+                    # 获取账户的监控列表
+                    account_monitors = MonitorList.query.filter_by(
+                        account_id=account_id,
+                        is_active=True
+                    ).all()
+                    
+                    if not account_monitors:
+                        logger.info(f"账户 {account_id} 没有监控记录")
+                        continue
+                    
+                    # 处理等待开仓的记录
+                    waiting_monitors = [m for m in account_monitors if m.sync_status == 'waiting']
+                    if waiting_monitors:
+                        # 获取最新价格数据
+                        latest_date = db.session.query(db.func.max(PriceRange20d.update_date)).scalar()
+                        if latest_date:
+                            three_mins_ago = datetime.now() - timedelta(minutes=3)
+                            price_records = PriceRange20d.query.filter(
+                                PriceRange20d.update_date == latest_date,
+                                PriceRange20d.update_time >= three_mins_ago
+                            ).all()
+                            price_data = {pr.symbol: pr for pr in price_records}
                             
-                            # 检查是否已有持仓
-                            has_position = monitor.symbol in current_position_symbols
-                            
-                            if monitor.sync_status == 'waiting' and not has_position:
-                                # 检查开仓条件
-                                last_price = Decimal(str(price_info.last_price))
-                                high_price = Decimal(str(price_info.high_price_20d))
-                                low_price = Decimal(str(price_info.low_price_20d))
-                                
-                                if last_price > high_price:
-                                    # 开多
-                                    logger.info(f"开多信号 - {monitor.symbol}")
-                                    syncer.open_position(monitor, account_info, 'long')
-                                elif last_price < low_price:
-                                    # 开空
-                                    logger.info(f"开空信号 - {monitor.symbol}")
-                                    syncer.open_position(monitor, account_info, 'short')
-                                    
-                            elif monitor.sync_status == 'opened' and has_position:
-                                # 检查止盈条件
-                                syncer.check_take_profit(monitor)
-                            
-                            elif monitor.sync_status == 'opened' and not has_position:
-                                # 状态不一致，更新为已关闭
-                                logger.warning(f"{monitor.symbol} 状态为opened但无持仓，更新为closed")
+                            # 分别处理不同策略的等待开仓记录
+                            for monitor in waiting_monitors:
+                                if monitor.strategy_type == 'break':
+                                    syncer.process_breakthrough_position(monitor, price_data)
+                                elif monitor.strategy_type == 'oscillation':
+                                    syncer.process_oscillation_position(monitor, price_data)
+                    
+                    # 处理已开仓的记录
+                    opened_monitors = [m for m in account_monitors if m.sync_status == 'opened']
+                    for monitor in opened_monitors:
+                        has_position = any(p.symbol == monitor.symbol for p in current_positions)
+                        if has_position:
+                            # 检查止盈条件
+                            syncer.check_take_profit(monitor)
+                        else:
+                            # 检查是否是刚开仓的情况（5分钟内）
+                            time_since_update = datetime.now() - monitor.last_sync_time
+                            if time_since_update.total_seconds() > 300:  # 5分钟
+                                # 超过5分钟确实无持仓，更新为已关闭
+                                logger.warning(f"{monitor.symbol} 状态为opened且超过5分钟无持仓，更新为closed")
                                 monitor.sync_status = 'closed'
                                 monitor.last_sync_time = datetime.now()
                                 db.session.commit()
-                                
-                        except Exception as e:
-                            logger.error(f"处理品种 {monitor.symbol} 失败: {str(e)}")
-                            continue
+                            else:
+                                logger.info(f"{monitor.symbol} 刚开仓不久，等待持仓信息更新")
                     
                     # 检查并平仓非监控品种
                     monitored_symbols = {m.symbol for m in account_monitors}
@@ -378,11 +473,11 @@ def run_sync_once():
                     logger.error(f"处理账户 {account_id} 失败: {str(e)}")
                     continue
             
-        logger.info("同步检查完成")
-        
-    except Exception as e:
-        logger.error(f"同步任务失败: {str(e)}")
-        logger.exception("详细错误信息：")
+        except Exception as e:
+            logger.error(f"同步检查失败: {str(e)}")
+            logger.exception("详细错误信息：")
+            
+    logger.info("同步检查完成")
 
 def run_sync_loop(interval: int = 60):
     """持续运行同步检查"""
@@ -408,7 +503,7 @@ if __name__ == "__main__":
                 # 单次运行模式
                 run_sync_once()
             else:
-                # 尝试将参数解析为间隔时间
+                # 尝试将参数解析为间隔间
                 try:
                     interval = int(sys.argv[1])
                     run_sync_loop(interval)

@@ -132,7 +132,7 @@ class DataManager:
             futures_api = self.get_futures_api()
             contracts = futures_api.list_futures_contracts(settle='usdt')
             
-            # 移除 _USDT 后缀�����返回
+            # 移除 _USDT 后缀
             return [
                 FuturesContractInfo(
                     symbol=contract.name.replace('_USDT', ''),
@@ -582,10 +582,10 @@ class DataManager:
             unrealised_pnl = float(position.unrealised_pnl)
             size = float(position.size)
             
-            # 如果是空仓，需要反向计算盈亏
-            pnl = -unrealised_pnl if size < 0 else unrealised_pnl
+            # 如果是空仓，需要反向计算盈��
+            pnl = unrealised_pnl
             
-            logger.info(f"获取持仓盈亏成功: {symbol} 盈亏={pnl:+.2f}")
+            logger.debug(f"获取持仓盈亏: {symbol} 盈亏={pnl:+.2f}")
             return pnl
             
         except Exception as e:
@@ -616,4 +616,55 @@ class DataManager:
             
         except Exception as e:
             logger.error(f"获取账户持仓失败: {str(e)}")
+            return []
+
+    def get_all_accounts(self) -> List[str]:
+        """获取所有��户ID"""
+        try:
+            with self.db_connection.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT DISTINCT account_id 
+                        FROM monitor_list 
+                        WHERE is_active = 1
+                    """)
+                    accounts = [str(row['account_id']) for row in cursor.fetchall()]
+                    logger.info(f"获取到 {len(accounts)} 个活跃账户")
+                    return accounts
+                    
+        except Exception as e:
+            logger.error(f"获取账户列表失败: {str(e)}")
+            return []
+
+    def get_kline_data(self, symbol: str, interval: str = '1d', limit: int = 21) -> List:
+        """获取K线数据
+        
+        Args:
+            symbol: 合约名称
+            interval: K线间隔 (1d表示日线)
+            limit: 获取数量
+            
+        Returns:
+            List of [timestamp, open, high, low, close, volume]
+        """
+        try:
+            if not self.futures_api:
+                self._init_api()
+            
+            # 添加 _USDT 后缀
+            contract = f"{symbol}_USDT"
+            
+            # 使用期货K线接口
+            candlesticks = self.futures_api.list_futures_candlesticks(
+                settle='usdt',  # 结算币种
+                contract=contract,
+                interval=interval,
+                limit=limit
+            )
+            
+            logger.info(f"获取到 {symbol} 的 {len(candlesticks) if candlesticks else 0} 条K线数据")
+            return candlesticks
+            
+        except Exception as e:
+            logger.error(f"获取K线数据失败: {str(e)}")
             return []

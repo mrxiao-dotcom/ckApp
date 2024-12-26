@@ -1,0 +1,997 @@
+/* 主布局 */
+.main-container {
+    padding: 10px;
+    max-width: 100%;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.back-button {
+    margin-right: 20px;
+}
+
+/* 标签页样式 */
+.tabs {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+}
+
+.tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-bottom: none;
+    margin-bottom: -1px;
+}
+
+.tab.active {
+    background: #fff;
+    border-color: #ddd;
+    border-bottom-color: #fff;
+}
+
+/* 内容区域 */
+.tab-panel {
+    display: none;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-top: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+/* 筛选区域 */
+.filter-container {
+    padding: 10px;
+}
+
+.filter-conditions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+}
+
+.range-inputs {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.range-inputs input {
+    width: 80px;
+    padding: 5px;
+}
+
+/* 搜索框 */
+.search-box {
+    margin-bottom: 10px;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+/* 数据表格 */
+.data-table-container {
+    width: 100%;
+    overflow-x: auto;
+    padding: 0 10px;
+    margin-bottom: 10px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 12px;
+    border: 1px solid #ddd;
+}
+
+.data-table th,
+.data-table td {
+    padding: 8px 6px;
+    vertical-align: middle;
+    line-height: 1.5;
+    border: 1px solid #ddd;
+    white-space: nowrap;
+}
+
+.data-table th {
+    background: #f5f5f5;
+    font-weight: 500;
+    color: #333;
+}
+
+.checkbox-column {
+    width: 30px !important;
+    padding: 0 4px !important;
+}
+
+/* 按钮样式 */
+.action-buttons {
+    text-align: right;
+}
+
+.primary-button {
+    padding: 8px 16px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.primary-button:hover {
+    background: #0056b3;
+}
+
+/* 空数据提示 */
+.no-data {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+/* 筛选按钮样式 */
+#apply-filter {
+    margin-left: 20px;
+    padding: 8px 16px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#apply-filter:hover {
+    background: #0056b3;
+}
+
+/* 对话框样式 */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.modal-content {
+    position: absolute;
+    background-color: #fff;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 0;
+    width: 400px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    padding: 15px 20px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 4px 4px 0 0;
+    cursor: move;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.2em;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    font-size: 1.5em;
+    cursor: pointer;
+    padding: 0;
+    color: #666;
+}
+
+.close-button:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.dialog-buttons {
+    padding: 15px 20px;
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    text-align: right;
+    border-radius: 0 0 4px 4px;
+}
+
+.dialog-buttons button {
+    margin-left: 10px;
+}
+
+.secondary-button {
+    padding: 8px 16px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.secondary-button:hover {
+    background: #5a6268;
+}
+
+/* 错误提示 */
+.error-message {
+    color: #dc3545;
+    margin-top: 5px;
+    font-size: 0.875em;
+}
+
+/* 响应式布局基础设置 */
+* {
+    box-sizing: border-box;
+}
+
+.breakthrough-container {
+    padding: 10px;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* 表格响应式处理 */
+.data-table-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* 提升iOS滚动体验 */
+    margin-bottom: 15px;
+}
+
+.data-table {
+    min-width: 800px; /* 确保小屏幕时可以横向滚动 */
+    width: 100%;
+    font-size: 14px; /* 默认字体大小 */
+}
+
+.data-table th,
+.data-table td {
+    padding: 8px 4px;
+    white-space: nowrap; /* 防止文字换行 */
+}
+
+/* 筛选条件区域响应式处理 */
+.filter-conditions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.filter-group {
+    flex: 1 1 auto;
+    min-width: 280px;
+    margin-bottom: 10px;
+}
+
+.range-inputs {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.range-inputs input {
+    width: 70px;
+    padding: 4px;
+    font-size: 14px;
+}
+
+/* 搜索框响应式处理 */
+.search-box {
+    margin-bottom: 15px;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 8px;
+    font-size: 14px;
+}
+
+/* 按钮样式优化 */
+.primary-button {
+    padding: 6px 12px;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+/* 移动端特定样式 */
+@media (max-width: 768px) {
+    .breakthrough-container {
+        padding: 5px;
+    }
+
+    /* 调整表格字体大小 */
+    .data-table {
+        font-size: 12px;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 6px 3px;
+    }
+
+    /* 优化筛选条件显示 */
+    .filter-group {
+        min-width: 100%;
+    }
+
+    .filter-group label {
+        font-size: 12px;
+    }
+
+    .range-inputs input {
+        width: 60px;
+        font-size: 12px;
+    }
+
+    /* 调整按钮大小 */
+    .primary-button {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+
+    /* 添加横向滚动提示 */
+    .data-table-container::after {
+        content: '← 左右滑动查看更多 →';
+        display: block;
+        text-align: center;
+        color: #666;
+        font-size: 12px;
+        padding: 5px 0;
+    }
+}
+
+/* 表数据对齐方式 */
+.text-right {
+    text-align: right !important;
+}
+
+.text-center {
+    text-align: center !important;
+}
+
+/* 添加滑动指示器 */
+/*
+.scroll-indicator {
+    height: 2px;
+    background-color: #1890ff;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+*/
+
+/* 优化复选框列宽 */
+.checkbox-column {
+    width: 30px;
+    padding: 0 2px !important;
+}
+
+/* 表格内容紧凑化 */
+.data-table td {
+    vertical-align: middle;
+}
+
+/* 数字列宽度控制 */
+.number-column {
+    width: 80px;
+}
+
+.date-column {
+    width: 85px;
+}
+
+/* 监控列表特定样式 */
+#monitor-content .data-table {
+    font-size: 12px !important;  /* 增大字体到12px */
+    border: 1px solid #ddd !important;
+    width: 100%;
+    min-width: 1000px;
+}
+
+#monitor-content .data-table th,
+#monitor-content .data-table td {
+    padding: 4px 6px !important;
+    border: 1px solid #ddd !important;
+    vertical-align: middle;
+}
+
+/* 监控列表中的状态标签 */
+#monitor-content .badge {
+    padding: 2px 6px;
+    font-size: 12px !important;  /* 增大标签字体 */
+    border-radius: 2px;
+}
+
+/* 监控列表中的按钮组 */
+#monitor-content .btn-group .btn {
+    padding: 2px 4px;
+    font-size: 12px !important;  /* 增大按钮字体 */
+}
+
+/* 移动端样式 */
+@media (max-width: 768px) {
+    #monitor-content .data-table {
+        font-size: 12px !important;  /* 保持移动端字体大小一致 */
+    }
+    
+    #monitor-content .badge {
+        font-size: 12px !important;
+    }
+    
+    #monitor-content .btn-group .btn {
+        font-size: 12px !important;
+    }
+}
+
+/* 状态标签样式 */
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.6em;
+    font-size: 0.85em;
+    font-weight: normal;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+/* 操作按钮列样式 */
+.action-column {
+    width: 80px;
+    white-space: nowrap;
+}
+
+.btn-group {
+    display: flex;
+    gap: 4px;
+}
+
+.btn-group .btn {
+    padding: 2px 6px;
+    font-size: 12px;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    /* 调整监控列表字体大小 */
+    #monitor-content .data-table {
+        font-size: 12px !important;
+    }
+    
+    /* 缩小数字列宽度 */
+    .number-column {
+        width: 60px;
+    }
+    
+    .date-column {
+        width: 70px;
+    }
+    
+    /* 优化状态标签 */
+    .badge {
+        padding: 0.2em 0.4em;
+        font-size: 0.8em;
+    }
+    
+    /* 优化操作按钮 */
+    .action-column {
+        width: 60px;
+    }
+    
+    .btn-group .btn {
+        padding: 1px 4px;
+        font-size: 11px;
+    }
+    
+    /* 隐藏部分列 */
+    @media (max-width: 480px) {
+        .hide-on-mobile {
+            display: none;
+        }
+    }
+}
+
+/* 表格内容对齐方式 */
+.text-right {
+    text-align: right !important;
+}
+
+.text-center {
+    text-align: center !important;
+}
+
+/* 状态标签颜色 */
+.bg-warning {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.bg-success {
+    background-color: #28a745;
+    color: #fff;
+}
+
+.bg-danger {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+.bg-secondary {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+/* 表格行状态 */
+.table-secondary {
+    background-color: rgba(108, 117, 125, 0.1);
+}
+
+/* 添加表格行悬停效果 */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* 优化滚动条样式 */
+.data-table-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+.data-table-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.data-table-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.data-table-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* 调整表格列宽 */
+.data-table th,
+.data-table td {
+    padding: 8px 4px;
+    white-space: nowrap;
+}
+
+/* 名称列宽度控制 */
+.data-table th:nth-child(2),
+.data-table td:nth-child(2) {
+    width: auto;  /* 自适应内容 */
+    padding: 8px 10px;  /* 适的内边距 */
+}
+
+/* 数字列宽度控制 */
+.number-column {
+    width: 80px !important;  /* 固定宽度 */
+}
+
+/* 日期列宽度 */
+.date-column {
+    width: 85px !important;
+}
+
+/* 确保表格不会被挤压 */
+.data-table {
+    table-layout: fixed;
+}
+
+/* 文本溢出处理 */
+.data-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 名称列宽度控制 - 最小宽度，但允许增长 */
+.data-table th:nth-child(2),
+.data-table td:nth-child(2) {
+    min-width: 60px;  /* 最小宽度 */
+    width: auto;
+}
+
+/* 数字列宽度控制 */
+.number-column {
+    min-width: 100px;  /* 增加最小宽度 */
+    width: auto;       /* 允许自动扩展 */
+    text-align: right;
+    padding-right: 10px !important;
+}
+
+/* 日期列宽度 */
+.date-column {
+    width: 85px !important;
+}
+
+/* 本溢出处理 */
+.data-table td {
+    overflow: visible;  /* 允许内容显示 */
+}
+
+/* 表格容器允许横向滚动 */
+.data-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 基础表格样式 */
+.data-table {
+    table-layout: auto;
+    width: fit-content;
+    margin: 0 auto;
+    border-collapse: collapse;
+    background: #fff;
+    font-size: 12px !important;  /* 增大字体 */
+    border: 1px solid #ddd;
+}
+
+/* 表格单元格基础样式 */
+.data-table th,
+.data-table td {
+    padding: 4px 6px;  /* 减内边距 */
+    white-space: nowrap;
+    text-align: center;
+    border: 1px solid #ddd;  /* 添加边线 */
+    vertical-align: middle;
+}
+
+/* 名称列 - 紧贴文字 */
+.data-table th:nth-child(2),
+.data-table td:nth-child(2) {
+    padding: 6px 8px;
+    width: min-content;  /* 使宽度适应内容 */
+}
+
+/* 数字列 */
+.number-column {
+    width: 75px !important;
+}
+
+/* 日期列 */
+.date-column {
+    width: 80px !important;
+}
+
+/* 复选框列 */
+.checkbox-column {
+    width: 30px !important;
+    padding: 0 4px !important;
+}
+
+/* 监控列表特定样式 */
+#monitor-content .data-table {
+    font-size: 12px !important;  /* 增大字体到12px */
+    border: 1px solid #ddd !important;
+    width: 100%;
+    min-width: 1000px;
+}
+
+#monitor-content .data-table th,
+#monitor-content .data-table td {
+    border: 1px solid #ddd !important;
+    padding: 6px 8px;
+}
+
+/* 表头样式 */
+.data-table th {
+    background: #f5f5f5;
+    font-weight: 500;
+    color: #333;
+}
+
+/* 名称列 - 固定4个字符宽度 */
+.data-table th:nth-child(2),
+.data-table td:nth-child(2) {
+    width: 48px !important;  /* 4个中文字符的宽度 */
+    min-width: 48px !important;
+    max-width: 48px !important;
+    padding: 6px 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 数字列 */
+.number-column {
+    width: 75px !important;
+}
+
+/* 日期列 */
+.date-column {
+    width: 80px !important;
+}
+
+/* 复选框列 */
+.checkbox-column {
+    width: 30px !important;
+    padding: 0 4px !important;
+}
+
+/* 监控列表特定样式 */
+#monitor-content .data-table {
+    font-size: 12px !important;  /* 增大字体到12px */
+    border: 1px solid #ddd !important;
+    width: 100%;
+    min-width: 1000px;
+}
+
+#monitor-content .data-table th,
+#monitor-content .data-table td {
+    border: 1px solid #ddd !important;
+    padding: 6px 8px;
+}
+
+/* 表格容器 */
+.data-table-container {
+    width: 100%;
+    overflow-x: auto;
+    padding: 0 10px;
+    margin-bottom: 10px;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 操作按钮样式 */
+.action-column {
+    white-space: nowrap;
+    width: 120px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.action-buttons button {
+    padding: 2px 8px;
+    font-size: 12px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.edit-btn {
+    color: #1890ff;
+    border-color: #1890ff;
+}
+
+.edit-btn:hover {
+    background: #e6f7ff;
+}
+
+.toggle-btn {
+    color: #52c41a;
+    border-color: #52c41a;
+}
+
+.toggle-btn:hover {
+    background: #f6ffed;
+}
+
+tr.inactive .toggle-btn {
+    color: #ff4d4f;
+    border-color: #ff4d4f;
+}
+
+tr.inactive .toggle-btn:hover {
+    background: #fff1f0;
+}
+
+/* 表格样式优化 */
+.data-table td {
+    padding: 8px;
+    vertical-align: middle;
+}
+
+.data-table .badge {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.filter-button {
+    padding: 6px 12px;
+    background-color: #1890ff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.filter-button:hover {
+    background-color: #40a9ff;
+}
+
+.filter-button:active {
+    background-color: #096dd9;
+}
+
+/* 特别为价格列设置更宽的宽度 */
+.price-column {
+    min-width: 160px !important;  /* 增加最小宽度到160px */
+    width: auto;
+    text-align: right;
+    padding-right: 10px !important;
+    white-space: nowrap;  /* 确保不会换行 */
+}
+
+/* 调整表格整体最小宽度 */
+#monitor-content .data-table {
+    font-size: 12px !important;
+    border: 1px solid #ddd !important;
+    width: 100%;
+    min-width: 1300px;  /* 增加整体最小宽度以适应新增列 */
+}
+
+/* 确保表格容器可以横向滚动 */
+.data-table-container {
+    width: 100%;
+    overflow-x: auto;
+    padding: 0 10px;
+    margin-bottom: 10px;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 优化数字列的显示 */
+.number-column {
+    min-width: 100px;  /* 保持其他数字列的宽度 */
+    width: auto;
+    text-align: right;
+    padding-right: 10px !important;
+    white-space: nowrap;
+}
+
+/* 表格基础样式 */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;  /* 使用固定布局 */
+    font-size: 12px;
+    border: 1px solid #ddd;
+}
+
+/* 名称列样式 */
+.symbol-column {
+    width: 100px;      /* 名称列 */
+}
+
+/* 价格列样式 */
+.price-column {
+    width: 100px;      /* 最新价列 */
+    text-align: right;
+}
+
+/* 数字列样式 */
+.number-column {
+    width: 70px;       /* 稍微减小数字列宽度以容纳新列 */
+    text-align: right;
+    padding-right: 8px !important;
+}
+
+/* 日期列样式 */
+.date-column {
+    width: 150px;      /* 时间列 */
+    text-align: center;
+}
+
+/* 方向列样式 */
+.direction-column {
+    width: 60px;       /* 方向列 */
+    text-align: center;
+}
+
+/* 状态列样式 */
+.status-column {
+    width: 80px;       /* 状态列 */
+    text-align: center;
+}
+
+/* 激活状态列样式 */
+.active-column {
+    width: 60px;       /* 激活列 */
+    text-align: center;
+}
+
+/* 文本对齐方式 */
+.text-right {
+    text-align: right !important;
+}
+
+.text-center {
+    text-align: center !important;
+}
+
+/* 状态标签样式 */
+.badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+/* 表格内容溢出处理 */
+.data-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 表格行状态 */
+.table-secondary {
+    background-color: rgba(108, 117, 125, 0.1);
+}
+
+/* 表格行悬停效果 */
+.data-table tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* 杠杆列样式 */
+.leverage-column {
+    width: 60px;       /* 杠杆列 */
+    text-align: right;
+} 

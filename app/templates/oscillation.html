@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>震荡交易</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/breakthrough.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/oscillation.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/oscillation.js') }}"></script>
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <button onclick="window.location.href='/main'" class="back-button">返回主页</button>
+            <h1>震荡交易</h1>
+        </div>
+        
+        <div class="breakthrough-content">
+            <div class="tabs">
+                <div class="tab active" data-tab="monitor">监控列表</div>
+                <div class="tab" data-tab="filter">品种筛选</div>
+            </div>
+            
+            <div class="tab-content">
+                <!-- 监控列表 -->
+                <div id="monitor-content" class="tab-panel active">
+                    <div class="data-table-container">
+                        <table class="data-table" id="monitorTable">
+                            <thead>
+                                <tr>
+                                    <th class="symbol-column">名称</th>
+                                    <th class="price-column">最新价</th>
+                                    <th class="date-column">更新时间</th>
+                                    <th class="number-column">振幅</th>
+                                    <th class="number-column">位置</th>
+                                    <th class="direction-column">方向</th>
+                                    <th class="number-column">资金</th>
+                                    <th class="number-column">杠杆</th>
+                                    <th class="number-column">配置市值</th>
+                                    <th class="status-column">状态</th>
+                                    <th class="active-column">激活</th>
+                                    <th class="date-column">同步时间</th>
+                                    <th class="action-column">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="monitor-list">
+                                <!-- 数据将通过JavaScript动态填充 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 品种筛选 -->
+                <div id="filter-content" class="tab-panel">
+                    <div class="filter-container">
+                        <!-- 筛选条件区域 -->
+                        <div class="filter-conditions">
+                            <div class="filter-group">
+                                <label>振幅范围：</label>
+                                <div class="range-inputs">
+                                    <input type="number" id="minAmplitude" placeholder="最小值" step="0.1">
+                                    <span>-</span>
+                                    <input type="number" id="maxAmplitude" placeholder="最大值" step="0.1">
+                                    <span>%</span>
+                                </div>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label>位置比：</label>
+                                <div class="range-inputs">
+                                    <input type="number" id="minPosition" placeholder="最小值" step="0.1">
+                                    <span>-</span>
+                                    <input type="number" id="maxPosition" placeholder="最大值" step="0.1">
+                                    <span>%</span>
+                                </div>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label>24h成交额(百万)：</label>
+                                <div class="range-inputs">
+                                    <input type="number" id="minVolume" placeholder="最小值" step="0.1">
+                                    <span>-</span>
+                                    <input type="number" id="maxVolume" placeholder="最大值" step="0.1">
+                                </div>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <input type="text" id="symbol-search" placeholder="搜索合约">
+                                <button class="filter-button">筛选</button>
+                            </div>
+                        </div>
+
+                        <!-- 数据表格 -->
+                        <div class="data-table-container">
+                            <table class="data-table" id="priceRangeTable">
+                                <thead>
+                                    <tr>
+                                        <th class="checkbox-column">
+                                            <input type="checkbox" id="select-all">
+                                        </th>
+                                        <th>名称</th>
+                                        <th class="number-column">20日高</th>
+                                        <th class="number-column">20日低</th>
+                                        <th class="number-column">最新价</th>
+                                        <th class="number-column">振幅</th>
+                                        <th class="number-column">位置</th>
+                                        <th class="number-column">24h成交额</th>
+                                        <th class="date-column">更新时间</th>
+                                        <th class="action-column">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="symbols-list">
+                                    <!-- 数据将通过JavaScript动态填充 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加配置对话框 -->
+    <div id="configDialog" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" id="dialogHeader">
+                <h3>配置监控参数</h3>
+                <button class="close-button">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="allocatedMoney">预计配置市值：</label>
+                    <input type="number" id="allocatedMoney" min="0" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="leverage">杠杆倍数：</label>
+                    <input type="number" id="leverage" min="1" step="1" value="3" required>
+                </div>
+                <div class="form-group">
+                    <label for="takeProfit">止盈目标金额：</label>
+                    <input type="number" id="takeProfit" min="0" step="0.01" required>
+                </div>
+            </div>
+            <div class="dialog-buttons">
+                <button id="saveConfig" class="primary-button">保存</button>
+                <button id="cancelConfig" class="secondary-button">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- K线图模态框 -->
+    <div id="klineModal" class="modal">
+        <div class="modal-content kline-modal">
+            <div class="modal-header">
+                <h3>K线图 - <span id="klineSymbol"></span></h3>
+                <button class="close-button" onclick="closeKlineModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="klineChart" class="chart-container"></div>
+                <div id="volumeChart" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑对话框 -->
+    <div id="editDialog" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑监控参数</h3>
+                <button class="close-button">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="editAllocatedMoney">资金：</label>
+                    <input type="number" id="editAllocatedMoney" min="0" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="editLeverage">杠杆倍数：</label>
+                    <input type="number" id="editLeverage" min="1" step="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="editTakeProfit">止盈金额：</label>
+                    <input type="number" id="editTakeProfit" min="0" step="0.01" required>
+                </div>
+            </div>
+            <div class="dialog-buttons">
+                <button id="saveEdit" class="primary-button">保存</button>
+                <button id="cancelEdit" class="secondary-button">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const accountId = urlParams.get('accountId');
+        const serverInfo = JSON.parse(decodeURIComponent(urlParams.get('serverInfo')));
+    </script>
+    <script src="{{ url_for('static', filename='js/oscillation.js') }}"></script>
+    <!-- 添加 ECharts 依赖 -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="{{ url_for('static', filename='js/kline.js') }}"></script>
+</body>
+</html> 

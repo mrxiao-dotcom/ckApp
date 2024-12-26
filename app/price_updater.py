@@ -126,7 +126,7 @@ class PriceUpdater:
             close_prices = [float(candle['close']) for candle in candles[-self.price_range_days:]]
             
             if len(close_prices) < self.price_range_days:
-                logger.warning(f"{symbol} 的K线数据不足{self.price_range_days}天: {len(close_prices)}天")
+                logger.warning(f"{symbol} 的K线数据��足{self.price_range_days}天: {len(close_prices)}天")
                 return None
             
             # 记录最高最低价格的日期
@@ -222,7 +222,7 @@ class PriceUpdater:
                     logger.error(f"获取现有记录失败: {str(e)}")
                     raise
                 
-                # 2. 获取所有可用合约
+                # 2. 获取��有可用合约
                 try:
                     futures_api = self.data_manager.get_futures_api()
                     available_contracts = futures_api.list_futures_contracts(settle='usdt')
@@ -347,7 +347,7 @@ class PriceUpdater:
                 
                 # 获取所有品种的符号列表
                 symbol_list = [symbol.symbol for symbol in symbols]
-                logger.info(f"需���更新的品种数量: {len(symbol_list)}")
+                logger.info(f"需要更新的品种数量: {len(symbol_list)}")
                 
                 # 使用新的 get_ticks 方法获取行情数据
                 ticker_dict = self.data_manager.get_ticks(symbol_list)
@@ -364,8 +364,8 @@ class PriceUpdater:
                         last_price = Decimal(str(ticker.last))
                         old_price = symbol.last_price
                         
-                        # 获取24小时成交量
-                        volume_24h = Decimal(str(ticker.volume_24h_settle))
+                        # 获取24小时成交量（USDT计价）
+                        volume_24h = Decimal(str(ticker.volume_24h_settle or 0))
                         
                         # 计算新的振幅和位置比
                         high_price = Decimal(str(symbol.high_price_20d))
@@ -377,7 +377,7 @@ class PriceUpdater:
                         symbol.last_price = last_price
                         symbol.amplitude = float(new_amplitude)
                         symbol.position_ratio = float(new_position_ratio)
-                        symbol.volume_24h = volume_24h  # 更新24小时成交量
+                        symbol.volume_24h = float(volume_24h)  # 更新24小时成交量
                         symbol.update_time = current_time
                         update_count += 1
                         
@@ -385,13 +385,11 @@ class PriceUpdater:
                         if old_price != last_price:
                             logger.info(f"{symbol.symbol} 更新 - "
                                       f"价格: {old_price} -> {last_price}, "
-                                      f"24h成交量: {volume_24h} "
-                                      f"({current_time.strftime('%H:%M:%S')})")
+                                      f"24h成交量: {volume_24h:,.0f} USDT")
                 
                 # 提交更改
                 db.session.commit()
-                logger.info(f"实时行情更新完成，成功更新了 {update_count} 个品种，"
-                           f"更新时间: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                logger.info(f"实时行情更新完成，成功更新了 {update_count} 个品种")
                 
             except Exception as e:
                 logger.error(f"实时行情更新失败: {str(e)}")
@@ -435,7 +433,7 @@ class PriceUpdater:
             raise
 
 def run_scheduler():
-    """���行调度器"""
+    """行调度器"""
     logger.info("启动价格更新调度器")
     
     # 更新任务

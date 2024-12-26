@@ -323,7 +323,7 @@ def breakthrough_trading():
 def get_symbol_data():
     account_id = request.args.get('accountId')
     if not account_id:
-        return jsonify({'error': '未指定账户ID'}), 400
+        return jsonify({'error': '未���定账户ID'}), 400
         
     try:
         data_manager = DataManager(current_user.current_server)
@@ -333,185 +333,64 @@ def get_symbol_data():
         logger.exception("Error getting symbol data")
         return jsonify({'error': str(e)}), 500
 
-@main_bp.route('/api/save_monitor_symbols', methods=['POST'])
-@login_required
-def save_monitor_symbols():
-    """保存账户的监控品种列表"""
-    try:
-        data = request.json
-        account_id = data.get('accountId')
-        strategy_type = data.get('strategy_type', 'break')  # 默认为突破策略
-        symbols_data = data.get('symbols', [])
-        
-        if not account_id:
-            return jsonify({'error': '未指定账户ID'}), 400
-            
-        try:
-            for symbol_data in symbols_data:
-                existing = MonitorList.query.filter_by(
-                    account_id=account_id,
-                    symbol=symbol_data['symbol'],
-                    strategy_type=strategy_type
-                ).first()
-                
-                if existing:
-                    # 更新现有记录
-                    existing.allocated_money = symbol_data['allocated_money']
-                    existing.leverage = symbol_data['leverage']
-                    existing.take_profit = symbol_data['take_profit']
-                    existing.sync_status = 'waiting'
-                    existing.is_active = True
-                else:
-                    # 创建新记录
-                    monitor_item = MonitorList(
-                        account_id=account_id,
-                        symbol=symbol_data['symbol'],
-                        strategy_type=strategy_type,
-                        allocated_money=symbol_data['allocated_money'],
-                        leverage=symbol_data['leverage'],
-                        take_profit=symbol_data['take_profit'],
-                        sync_status='waiting',
-                        is_active=True
-                    )
-                    db.session.add(monitor_item)
-            
-            db.session.commit()
-            return jsonify({
-                'status': 'success',
-                'message': '保存成功'
-            })
-            
-        except Exception as e:
-            db.session.rollback()
-            raise
-            
-    except Exception as e:
-        logger.error(f"保存监控列表失败: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+def get_data_manager():
+    """获取数据管理器实例"""
+    server_id = request.headers.get('X-Server-ID')
+    if not server_id:
+        raise ValueError('未指定服务器ID')
+    return DataManager(server_id)
 
-@main_bp.route('/get_price_ranges', methods=['GET'])
-@login_required
-def get_price_ranges():
-    """获取价格范围数据"""
-    try:
-        # 获取筛选参数
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
-        min_amplitude = request.args.get('min_amplitude', type=float)
-        max_amplitude = request.args.get('max_amplitude', type=float)
-        min_position = request.args.get('min_position', type=float)
-        max_position = request.args.get('max_position', type=float)
-        min_volume = request.args.get('min_volume', type=float)
-        max_volume = request.args.get('max_volume', type=float)
-        search = request.args.get('search', '').strip()
-
-        # 构建查询
-        query = PriceRange20d.query
-
-        # 应用筛选条件
-        if min_amplitude is not None:
-            query = query.filter(PriceRange20d.amplitude >= min_amplitude)
-        if max_amplitude is not None:
-            query = query.filter(PriceRange20d.amplitude <= max_amplitude)
-        if min_position is not None:
-            query = query.filter(PriceRange20d.position_ratio >= min_position)
-        if max_position is not None:
-            query = query.filter(PriceRange20d.position_ratio <= max_position)
-        if min_volume is not None:
-            query = query.filter(PriceRange20d.volume_24h >= min_volume)
-        if max_volume is not None:
-            query = query.filter(PriceRange20d.volume_24h <= max_volume)
-        if search:
-            query = query.filter(PriceRange20d.symbol.ilike(f'%{search}%'))
-
-        # 获取分页数
-        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-        price_ranges = pagination.items
-
-        # 转换为JSON格式
-        data = [{
-            'symbol': pr.symbol,
-            'high_price_20d': float(pr.high_price_20d),
-            'low_price_20d': float(pr.low_price_20d),
-            'last_price': float(pr.last_price),
-            'amplitude': float(pr.amplitude),
-            'position_ratio': float(pr.position_ratio),
-            'volume_24h': float(pr.volume_24h),
-            'update_time': pr.update_time.strftime('%Y-%m-%d %H:%M:%S') if pr.update_time else None
-        } for pr in price_ranges]
-
-        return jsonify({
-            'status': 'success',
-            'data': data,
-            'total': pagination.total,
-            'pages': pagination.pages,
-            'current_page': page
-        })
-
-    except Exception as e:
-        logger.error(f"获取价格范围数据失败: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-@main_bp.route('/api/monitor_symbols/<account_id>', methods=['GET'])
-@login_required
+@main_bp.route('/api/monitor_symbols/<account_id>')
 def get_monitor_symbols(account_id):
-    """获取账户的监控品种列表"""
-    strategy_type = request.args.get('strategy_type', 'break')  # 默认取突破策略
+    """获取监控列表数据"""
     try:
-        current_app.logger.info(f"获取账户 {account_id} 的监控列表")
-        
-        # 查询该账户的所有监控品种
-        monitor_items = MonitorList.query.filter_by(
-            account_id=account_id,
-            strategy_type=strategy_type,
-            is_active=True
-        ).all()
-        
-        # 确保同步状态值正确
-        for item in monitor_items:
-            if isinstance(item.sync_status, str):
-                item.sync_status = SyncStatus.from_string(item.sync_status)
-        
-        # 获取这些品种的最新价格范围数据
-        latest_date = db.session.query(db.func.max(PriceRange20d.update_date)).scalar()
-        
-        if latest_date:
-            symbols = [item.symbol for item in monitor_items]
-            price_ranges = PriceRange20d.query.filter(
-                PriceRange20d.update_date == latest_date,
-                PriceRange20d.symbol.in_(symbols)
-            ).all()
-            
-            # 转换为字典以便���速查找
-            price_data = {pr.symbol: pr for pr in price_ranges}
-            
-            # 组合数据
-            data = [{
-                **item.to_dict(),  # 包含监控列表的所有字段
-                'high_price_20d': float(price_data[item.symbol].high_price_20d) if item.symbol in price_data else None,
-                'low_price_20d': float(price_data[item.symbol].low_price_20d) if item.symbol in price_data else None,
-                'last_price': float(price_data[item.symbol].last_price) if item.symbol in price_data else None,
-                'amplitude': float(price_data[item.symbol].amplitude) if item.symbol in price_data else None,
-                'position_ratio': float(price_data[item.symbol].position_ratio) if item.symbol in price_data else None
-            } for item in monitor_items]
-        else:
-            data = [item.to_dict() for item in monitor_items]
+        # 获取服务器ID
+        server_id = request.headers.get('X-Server-ID')
+        if not server_id:
+            return jsonify({
+                'status': 'error',
+                'message': '未指定服务器ID'
+            }), 400
 
-        current_app.logger.info(f"成功获取监控列表，共 {len(monitor_items)} 个品种")
-        return jsonify({
-            'status': 'success',
-            'data': data
-        })
+        # 创建数据管理器
+        data_manager = DataManager(server_id)
         
+        # 获取监控列表数据
+        sql = """
+            SELECT 
+                m.id,
+                m.symbol,
+                m.allocated_money,
+                m.leverage,
+                m.take_profit,
+                m.sync_status as status,
+                m.is_active,
+                m.last_sync_time as sync_time,
+                m.position_side,  # 直接使用原始的 position_side
+                p.last_price,
+                p.amplitude,
+                p.position_ratio,
+                p.update_time
+            FROM monitor_list m
+            LEFT JOIN price_range_20d p ON m.symbol = p.symbol
+            WHERE m.account_id = %s AND m.strategy_type = 'break'
+            ORDER BY m.id DESC
+        """
+        
+        with data_manager.db_connection.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql, (account_id,))
+                data = cursor.fetchall()
+                logger.info(f"查询到 {len(data)} 条记录")
+                if data:
+                    logger.debug(f"数据示例: {data[0]}")
+                return jsonify({
+                    'status': 'success',
+                    'data': data
+                })
+                
     except Exception as e:
-        current_app.logger.error(f"获取监控列表失败: {str(e)}")
-        current_app.logger.exception("详细错误信息：")
+        logger.error(f"获取监控列表失败: {str(e)}")
         return jsonify({
             'status': 'error',
             'message': str(e)
@@ -612,7 +491,7 @@ def toggle_monitor_active(id):
         monitor = MonitorList.query.get_or_404(id)
         monitor.is_active = not monitor.is_active
         db.session.commit()
-        logger.info(f"成功切换监控记录 {monitor.symbol} 的激活��态为: {monitor.is_active}")
+        logger.info(f"成功切换监控记录 {monitor.symbol} 的激活状态为: {monitor.is_active}")
         return jsonify({'success': True})
     except Exception as e:
         logger.error(f"切换监控记录激活状态失败: {str(e)}")
@@ -633,125 +512,86 @@ def save_oscillation_monitor():
     """保存震荡交易监控记录"""
     try:
         data = request.json
-        account_id = data.get('accountId')
-        symbols_data = data.get('symbols', [])
+        account_id = data['accountId']
+        symbols = data['symbols']
         
-        if not account_id:
-            return jsonify({'error': '未指定账户ID'}), 400
+        for symbol_data in symbols:
+            monitor = MonitorList(
+                account_id=account_id,
+                symbol=symbol_data['symbol'],
+                allocated_money=symbol_data['allocated_money'],
+                leverage=symbol_data['leverage'],
+                take_profit=symbol_data['take_profit'],
+                strategy_type='oscillation',  # 设置为震荡交易类型
+                sync_status='waiting',
+                is_active=True
+            )
+            db.session.add(monitor)
             
-        try:
-            for symbol_data in symbols_data:
-                existing = OscillationMonitor.query.filter_by(
-                    account_id=account_id,
-                    symbol=symbol_data['symbol']
-                ).first()
-                
-                if existing:
-                    # 更新现有记录
-                    existing.allocated_money = symbol_data['allocated_money']
-                    existing.leverage = symbol_data['leverage']
-                    existing.take_profit = symbol_data['take_profit']
-                    existing.sync_status = 'waiting'
-                    existing.is_active = True
-                else:
-                    # 创建新记录
-                    monitor_item = OscillationMonitor(
-                        account_id=account_id,
-                        symbol=symbol_data['symbol'],
-                        allocated_money=symbol_data['allocated_money'],
-                        leverage=symbol_data['leverage'],
-                        take_profit=symbol_data['take_profit'],
-                        sync_status='waiting',
-                        is_active=True
-                    )
-                    db.session.add(monitor_item)
-            
-            db.session.commit()
-            return jsonify({
-                'status': 'success',
-                'message': '保存成功'
-            })
-            
-        except Exception as e:
-            db.session.rollback()
-            raise
-            
-    except Exception as e:
-        logger.error(f"保存监控列表失败: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-@main_bp.route('/api/oscillation_monitor/<account_id>', methods=['GET'])
-@login_required
-def get_oscillation_monitor(account_id):
-    """获取账户的震荡交易监控列表"""
-    try:
-        logger.info(f"获取账户 {account_id} 的震荡交易监控列表")
-        
-        # 查询该账户的所有监控品种
-        monitor_items = OscillationMonitor.query.filter_by(
-            account_id=str(account_id),  # 确保 account_id 是字符串类型
-            is_active=True
-        ).all()
-        
-        # 获取这些品种的最新价格范围数据
-        latest_date = db.session.query(db.func.max(PriceRange20d.update_date)).scalar()
-        
-        if latest_date:
-            symbols = [item.symbol for item in monitor_items]
-            if symbols:  # 只在有监控品种时查询价格数据
-                price_ranges = PriceRange20d.query.filter(
-                    PriceRange20d.update_date == latest_date,
-                    PriceRange20d.symbol.in_(symbols)
-                ).all()
-                
-                # 转换为字典以便快速查找
-                price_data = {pr.symbol: pr for pr in price_ranges}
-                
-                # 组合数据
-                data = [{
-                    **item.to_dict(),  # 包含监控列表的所有字段
-                    'high_price_20d': float(price_data[item.symbol].high_price_20d) if item.symbol in price_data else None,
-                    'low_price_20d': float(price_data[item.symbol].low_price_20d) if item.symbol in price_data else None,
-                    'last_price': float(price_data[item.symbol].last_price) if item.symbol in price_data else None,
-                    'amplitude': float(price_data[item.symbol].amplitude) if item.symbol in price_data else None,
-                    'position_ratio': float(price_data[item.symbol].position_ratio) if item.symbol in price_data else None
-                } for item in monitor_items]
-            else:
-                data = []  # 如果没有监控品种，返回空列表
-        else:
-            data = [item.to_dict() for item in monitor_items]
-
-        logger.info(f"成功获取震荡交易监控列表，共 {len(monitor_items)} 个品种")
+        db.session.commit()
         return jsonify({
             'status': 'success',
-            'data': data
+            'message': '保存成功'
         })
-        
     except Exception as e:
-        logger.error(f"获取震荡交易监控列表失败: {str(e)}")
-        logger.exception("详细错误信息：")
+        logger.error(f"保存震荡监控记录失败: {str(e)}")
+        db.session.rollback()
         return jsonify({
             'status': 'error',
             'message': str(e)
         }), 500
 
-@main_bp.route('/api/oscillation_monitor/<int:id>/toggle_active', methods=['POST'])
+@main_bp.route('/api/oscillation/<int:id>', methods=['GET'])
 @login_required
-def toggle_oscillation_monitor_active(id):
-    """切换震荡交易监控记录的激活状态"""
+def get_oscillation_monitor(id):
+    """获取震荡监控记录详情"""
     try:
-        monitor = OscillationMonitor.query.get_or_404(id)
-        monitor.is_active = not monitor.is_active
-        db.session.commit()
-        logger.info(f"成功切换震荡交易监控记录 {monitor.symbol} 的激活状态为: {monitor.is_active}")
-        return jsonify({'success': True})
+        monitor = MonitorList.query.filter_by(
+            id=id,
+            strategy_type='oscillation'
+        ).first_or_404()
+        
+        return jsonify({
+            'status': 'success',
+            'monitor': monitor.to_dict()
+        })
     except Exception as e:
-        logger.error(f"切换震荡交易监控记录激活状态失败: {str(e)}")
+        logger.error(f"获取震荡监控记录失败: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@main_bp.route('/api/oscillation/<int:id>', methods=['PUT'])
+@login_required
+def update_oscillation_monitor(id):
+    """更新震荡监控记录"""
+    try:
+        monitor = MonitorList.query.filter_by(
+            id=id,
+            strategy_type='oscillation'
+        ).first_or_404()
+        
+        data = request.json
+        
+        monitor.allocated_money = data['allocated_money']
+        monitor.leverage = data['leverage']
+        monitor.take_profit = data['take_profit']
+        monitor.updated_at = datetime.now()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': '更新成功'
+        })
+    except Exception as e:
+        logger.error(f"更新震荡监控记录失败: {str(e)}")
         db.session.rollback()
-        return jsonify({'success': False, 'message': str(e)})
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
@@ -869,3 +709,251 @@ def calculate_ma(data, period):
             val = sum(data[i - period + 1:i + 1]) / period
             result.append(val)
     return result
+
+@main_bp.route('/api/monitor/<int:id>', methods=['GET'])
+@login_required
+def get_monitor(id):
+    """获取监控记录详情"""
+    try:
+        monitor = MonitorList.query.get_or_404(id)
+        return jsonify({
+            'status': 'success',
+            'monitor': monitor.to_dict()
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@main_bp.route('/api/monitor/<int:id>', methods=['PUT'])
+@login_required
+def update_monitor(id):
+    """更新监控记录"""
+    try:
+        monitor = MonitorList.query.get_or_404(id)
+        data = request.json
+        
+        monitor.allocated_money = data['allocated_money']
+        monitor.leverage = data['leverage']
+        monitor.take_profit = data['take_profit']
+        monitor.updated_at = datetime.now()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': '更新成功'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@main_bp.route('/api/oscillation_monitor/<int:id>/toggle_active', methods=['POST'])
+@login_required
+def toggle_oscillation_monitor_active(id):
+    """切换震荡交易监控记录的激活状态"""
+    try:
+        monitor = OscillationMonitor.query.get_or_404(id)
+        monitor.is_active = not monitor.is_active
+        db.session.commit()
+        logger.info(f"成功切换震荡交易监控记录 {monitor.symbol} 的激活状态为: {monitor.is_active}")
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"切换震荡交易监控记录激活状态失败: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)})
+
+@main_bp.route('/api/price_ranges')
+@login_required
+def get_price_ranges():
+    """获取价格范围数据"""
+    try:
+        # 获取请求参数
+        account_id = request.args.get('account_id')
+        strategy_type = request.args.get('strategy_type')
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 30))
+        
+        # 获取筛选条件
+        filters = {
+            'min_amplitude': float(request.args.get('min_amplitude')) if request.args.get('min_amplitude') else None,
+            'max_amplitude': float(request.args.get('max_amplitude')) if request.args.get('max_amplitude') else None,
+            'min_position': float(request.args.get('min_position')) if request.args.get('min_position') else None,
+            'max_position': float(request.args.get('max_position')) if request.args.get('max_position') else None,
+            'min_volume': float(request.args.get('min_volume')) if request.args.get('min_volume') else None,
+            'max_volume': float(request.args.get('max_volume')) if request.args.get('max_volume') else None,
+            'symbol': request.args.get('symbol'),
+            'page': page,
+            'per_page': per_page
+        }
+
+        # 获取服务器ID
+        server_id = request.headers.get('X-Server-ID')
+        if not server_id:
+            return jsonify({
+                'status': 'error',
+                'message': '未指定服务器ID'
+            }), 400
+
+        # 创建数据管理器
+        data_manager = DataManager(server_id)
+        
+        # 获取价格范围数据
+        result = data_manager.get_price_ranges(account_id, strategy_type, filters)
+        
+        # 添加调试日志
+        logger.debug(f"获取价格范围数据成功: {len(result.get('data', []))} 条记录")
+        
+        return jsonify({
+            'status': 'success',
+            'data': result.get('data', []),
+            'total': result.get('total', 0)
+        })
+        
+    except ValueError as e:
+        logger.error(f"参数错误: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'参数错误: {str(e)}'
+        }), 400
+        
+    except Exception as e:
+        logger.error(f"获取价格范围数据失败: {str(e)}")
+        logger.exception("详细错误信息：")  # 添加详细的错误堆栈
+        return jsonify({
+            'status': 'error',
+            'message': f'服务器错误: {str(e)}'
+        }), 500
+
+@main_bp.route('/api/save_monitor_symbols', methods=['POST'])
+@login_required
+def save_monitor_symbols():
+    """保存监控品种"""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({
+                'status': 'error',
+                'message': '无效的请求数据'
+            }), 400
+
+        account_id = data.get('accountId')
+        strategy_type = data.get('strategy_type', 'break')  # 默认为突破策略
+        symbols_data = data.get('symbols', [])
+        
+        if not account_id:
+            return jsonify({
+                'status': 'error',
+                'message': '未指定账户ID'
+            }), 400
+            
+        try:
+            for symbol_data in symbols_data:
+                # 检查是否已存在
+                existing = MonitorList.query.filter_by(
+                    account_id=account_id,
+                    symbol=symbol_data['symbol'],
+                    strategy_type=strategy_type
+                ).first()
+                
+                if existing:
+                    # 更新现有记录
+                    existing.allocated_money = symbol_data['allocated_money']
+                    existing.leverage = symbol_data['leverage']
+                    existing.take_profit = symbol_data['take_profit']
+                    existing.sync_status = 'waiting'
+                    existing.is_active = True
+                else:
+                    # 创建新记录
+                    monitor = MonitorList(
+                        account_id=account_id,
+                        symbol=symbol_data['symbol'],
+                        allocated_money=symbol_data['allocated_money'],
+                        leverage=symbol_data['leverage'],
+                        take_profit=symbol_data['take_profit'],
+                        strategy_type=strategy_type,
+                        sync_status='waiting',
+                        is_active=True
+                    )
+                    db.session.add(monitor)
+            
+            db.session.commit()
+            return jsonify({
+                'status': 'success',
+                'message': '保存成功'
+            })
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"保存监控品种失败: {str(e)}")
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"保存监控品种失败: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@main_bp.route('/api/oscillation_monitor_symbols/<account_id>')
+def get_oscillation_monitor_symbols(account_id):
+    """获取震荡交易监控列表数据"""
+    try:
+        # 获取服务器ID
+        server_id = request.headers.get('X-Server-ID')
+        if not server_id:
+            return jsonify({
+                'status': 'error',
+                'message': '未指定服务器ID'
+            }), 400
+
+        # 创建数据管理器
+        data_manager = DataManager(server_id)
+        
+        # 获取监控列表数据
+        sql = """
+            SELECT 
+                m.id,
+                m.symbol,
+                m.allocated_money,
+                m.leverage,
+                m.take_profit,
+                m.sync_status as status,
+                m.is_active,
+                m.last_sync_time as sync_time,
+                m.position_side,
+                p.last_price,
+                p.amplitude,
+                p.position_ratio,
+                p.update_time
+            FROM monitor_list m
+            LEFT JOIN price_range_20d p ON m.symbol = p.symbol
+            WHERE m.account_id = %s AND m.strategy_type = 'oscillation'
+            ORDER BY m.id DESC
+        """
+        
+        with data_manager.db_connection.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql, (account_id,))
+                data = cursor.fetchall()
+                logger.info(f"查询到 {len(data)} 条震荡交易记录")
+                if data:
+                    logger.debug(f"数据示例: {data[0]}")
+                return jsonify({
+                    'status': 'success',
+                    'data': data
+                })
+                
+    except Exception as e:
+        logger.error(f"获取震荡交易监控列表失败: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500

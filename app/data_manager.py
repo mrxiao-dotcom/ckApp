@@ -92,16 +92,17 @@ class DataManager:
         current_time = time.time()
         cache_key = account_info.acct_id
         
+        # 检查是否需要重新初始化API（账户变化或未初始化）
+        if not self.account_info or self.account_info.acct_id != account_info.acct_id:
+            logger.info(f"切换账户: {self.account_info.acct_id if self.account_info else 'None'} -> {account_info.acct_id}")
+            self.init_api(account_info)
+        
         # 如果缓存存在且未过期（3秒内）且不强制更新
         if not force_update and cache_key in self._positions_cache:
             if current_time - self._positions_cache_time < 3:
                 return self._positions_cache[cache_key]
         
         try:
-            # 确保API已初始化
-            if not self.futures_api:
-                self.init_api(account_info)
-            
             # 获取所有持仓信息
             positions = self.futures_api.list_positions("usdt", holding="true")
             
@@ -166,7 +167,7 @@ class DataManager:
             db = DatabaseConnection(self.server_id)
             with db.get_connection() as conn:
                 with conn.cursor() as cursor:
-                    # 获取账户的产品组合配置
+                    # 账户的产品组合配置
                     cursor.execute("""
                         SELECT asg.product_list, asg.money, asg.discount,
                                scp.comb_name
@@ -373,9 +374,12 @@ class DataManager:
             return None
 
     def get_ticks(self, symbols):
-        """获取实时行情数据"""
+        """获取实���行情数据"""
         try:
             futures_api = self.get_futures_api()
+            
+            # 将请求的符号列表转换为集合，便于快速查找
+            symbol_set = set(symbols)
             
             # 获取所有行情数据
             tickers = futures_api.list_futures_tickers(settle='usdt')
@@ -386,19 +390,28 @@ class DataManager:
                 original_symbol = ticker.contract
                 processed_symbol = original_symbol.replace('_USDT', '')
                 
-                if processed_symbol in symbols:
+                # 检查处理后的符号是否在请求的符号列表中
+                if processed_symbol in symbol_set:
                     result[processed_symbol] = ticker
-                    logger.debug(f"匹配到合约: {processed_symbol}")
+                    logger.debug(f"匹配到合约: {processed_symbol}, "
+                               f"24h成交量: {ticker.volume_24h_settle:,.0f} USDT")
             
             # 记录匹配结果
-            logger.debug(f"数据库中的合约总数: {len(symbols)}")
-            logger.debug(f"Gate.io返回的合约总数: {len(tickers)}")
-            logger.debug(f"成功匹配的合约数量: {len(result)}")
+            matched_symbols = set(result.keys())
+            missing_symbols = symbol_set - matched_symbols
+            
+            if missing_symbols:
+                logger.warning(f"以下合约未找到行情数据: {', '.join(missing_symbols)}")
+            
+            logger.info(f"请求的合约数量: {len(symbols)}, 匹配���的合约数量: {len(result)}")
             
             return result
             
         except (ApiException, GateApiException) as e:
             logger.error(f"获取实时行情失败: {str(e)}")
+            return {}
+        except Exception as e:
+            logger.error(f"获取实时行情时发生错误: {str(e)}")
             return {}
 
     def create_order(self, account_info: AccountInfo, symbol: str, direction: str, amount: float, leverage: int) -> bool:
@@ -446,7 +459,7 @@ class DataManager:
                 logger.info(f"设置杠杆成功: {symbol} {actual_leverage}x")
                 
             except Exception as e:
-                logger.error(f"设置杠杆失败: {str(e)}")
+                logger.error(f"设置杠���失败: {str(e)}")
                 return False
             
             # 3. 计算并执行分批下单
@@ -455,7 +468,7 @@ class DataManager:
                 contract_value = contract_size * current_price  # 每张合约价值
                 total_size = (amount * actual_leverage) / contract_value  # 需要的合约张数
                 
-                # 对合约张数进行上取整，确保至少有1张
+                # 对合约张数行上取整，确保至少有1张
                 total_size = max(1, math.ceil(total_size))
                 
                 # 如果小于最小下单量，则调整到最小下单量
@@ -474,7 +487,7 @@ class DataManager:
                     # 根据方向设置正负
                     order_size = int(batch_size) if direction == 'long' else -int(batch_size)
                     
-                    # 创建订单对象
+                    # 创建订单对��
                     from gate_api import FuturesOrder
                     futures_order = FuturesOrder(
                         contract=contract,
@@ -582,7 +595,7 @@ class DataManager:
             unrealised_pnl = float(position.unrealised_pnl)
             size = float(position.size)
             
-            # 如果是空仓，需要反向计算盈��
+            # 如果是空仓，需要反向计算盈亏
             pnl = unrealised_pnl
             
             logger.debug(f"获取持仓盈亏: {symbol} 盈亏={pnl:+.2f}")
@@ -619,7 +632,7 @@ class DataManager:
             return []
 
     def get_all_accounts(self) -> List[str]:
-        """获取所有��户ID"""
+        """获取所有账户ID"""
         try:
             with self.db_connection.get_connection() as conn:
                 with conn.cursor() as cursor:
@@ -668,3 +681,140 @@ class DataManager:
         except Exception as e:
             logger.error(f"获取K线数据失败: {str(e)}")
             return []
+
+    def get_price_ranges(self, account_id: str, strategy_type: str, filters: dict) -> dict:
+        """获取价格范围数据"""
+        try:
+            with self.db_connection.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    # 构建查询条件
+                    conditions = ['1=1']  # 始终为真的条件
+                    params = []
+
+                    # 获取最新日期
+                    cursor.execute("SELECT MAX(update_date) as latest_date FROM price_range_20d")
+                    latest_date = cursor.fetchone()['latest_date']
+                    if latest_date:
+                        conditions.append("update_date = %s")
+                        params.append(latest_date)
+
+                    # 添加筛选条件
+                    if filters.get('min_amplitude') is not None:
+                        conditions.append('amplitude >= %s')
+                        params.append(float(filters['min_amplitude']) / 100)  # 转换为小数
+                    if filters.get('max_amplitude') is not None:
+                        conditions.append('amplitude <= %s')
+                        params.append(float(filters['max_amplitude']) / 100)  # 转换为小数
+
+                    # 修改位置字段的筛选逻辑 - 直接使用原始值进行比较
+                    if filters.get('min_position') is not None:
+                        conditions.append('position_ratio >= %s')
+                        params.append(float(filters['min_position']))  # 不需要除以100
+                    if filters.get('max_position') is not None:
+                        conditions.append('position_ratio <= %s')
+                        params.append(float(filters['max_position']))  # 不需要除以100
+
+                    # 成交量筛选
+                    if filters.get('min_volume') is not None:
+                        conditions.append('volume_24h >= %s')
+                        params.append(float(filters['min_volume']) * 1000000)  # 转换为USDT
+                    if filters.get('max_volume') is not None:
+                        conditions.append('volume_24h <= %s')
+                        params.append(float(filters['max_volume']) * 1000000)  # 转换为USDT
+
+                    if filters.get('symbol'):
+                        conditions.append('symbol LIKE %s')
+                        params.append(f'%{filters["symbol"]}%')
+
+                    # 构建SQL查询
+                    where_clause = ' AND '.join(conditions)
+
+                    # 添加调试日志
+                    logger.debug("筛选条件:")
+                    logger.debug(f"- 位置范围: {filters.get('min_position')} - {filters.get('max_position')}")
+                    logger.debug(f"- SQL条件: {where_clause}")
+                    logger.debug(f"- 参数: {params}")
+
+                    # 获取总数
+                    count_sql = f"""
+                        SELECT COUNT(*) as total
+                        FROM price_range_20d
+                        WHERE {where_clause}
+                    """
+                    cursor.execute(count_sql, params)
+                    total = cursor.fetchone()['total']
+
+                    # 获取分页数据
+                    offset = (filters['page'] - 1) * filters['per_page']
+                    data_sql = f"""
+                        SELECT 
+                            symbol,
+                            high_price_20d,
+                            low_price_20d,
+                            last_price,
+                            amplitude * 100 as amplitude,
+                            position_ratio * 100 as position_ratio,
+                            volume_24h,
+                            update_time
+                        FROM price_range_20d
+                        WHERE {where_clause}
+                        ORDER BY volume_24h DESC
+                        LIMIT %s OFFSET %s
+                    """
+                    cursor.execute(data_sql, params + [filters['per_page'], offset])
+                    data = cursor.fetchall()
+
+                    # 添加调试日志
+                    if data:
+                        logger.debug(f"查询结果示例: {data[0]}")
+                        logger.debug(f"position_ratio: {data[0]['position_ratio']}")
+
+                    return {
+                        'data': data,
+                        'total': total
+                    }
+
+        except Exception as e:
+            logger.error(f"获取价格范围数据失败: {str(e)}")
+            logger.exception("详细错误信息：")
+            raise
+
+    def get_monitor_symbols(self, account_id: str) -> List[dict]:
+        """获取监控列表数据"""
+        try:
+            with self.db_connection.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    sql = """
+                        SELECT 
+                            m.id,
+                            m.symbol,
+                            m.allocated_money,
+                            m.leverage,
+                            m.take_profit,
+                            m.market_value,
+                            m.position_side,  # 添加方向字段
+                            m.status,
+                            m.is_active,
+                            m.sync_time,
+                            p.last_price,
+                            p.amplitude,
+                            p.position_ratio,
+                            p.update_time
+                        FROM monitor_symbols m
+                        LEFT JOIN price_range_20d p ON m.symbol = p.symbol
+                        WHERE m.account_id = %s AND m.strategy_type = 'breakthrough'
+                        ORDER BY m.id DESC
+                    """
+                    cursor.execute(sql, (account_id,))
+                    data = cursor.fetchall()
+                    
+                    # 添加调试日志
+                    if data:
+                        logger.debug(f"监控列表数据示例: {data[0]}")
+                    
+                    return data
+
+        except Exception as e:
+            logger.error(f"获取监控列表失败: {str(e)}")
+            logger.exception("详细错误信息：")
+            raise

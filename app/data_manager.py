@@ -35,11 +35,21 @@ class DataManager:
             # 创建API配置
             config = Configuration(
                 key=self.account_info.apikey,
-                secret=self.account_info.secretkey
+                secret=self.account_info.secretkey,
+                host="https://api.gateio.ws/api/v4"  # 确保使用正确的API地址
             )
             
             # 创建API客户端
             self.api_client = ApiClient(config)
+            
+            # 设置请求头中的时间戳
+            def apply_auth_to_request(request, _):
+                import time
+                request.header_params['Timestamp'] = str(int(time.time()))
+                return request
+                
+            # 添加请求预处理器
+            self.api_client.pre_request_hook = apply_auth_to_request
             
             # 创建期货API实例
             self.futures_api = FuturesApi(self.api_client)
@@ -114,6 +124,21 @@ class DataManager:
             
         except Exception as e:
             logger.error(f"获取账户持仓失败: {str(e)}")
+            # 如果是时间戳错误，尝试重新初始化API并重试一次
+            if "REQUEST_EXPIRED" in str(e):
+                try:
+                    logger.info("检测到时间戳过期，重新初始化API并重试")
+                    self.init_api(account_info)
+                    positions = self.futures_api.list_positions("usdt", holding="true")
+                    
+                    # 更新缓存
+                    self._positions_cache[cache_key] = positions
+                    self._positions_cache_time = current_time
+                    
+                    return positions
+                except Exception as retry_e:
+                    logger.error(f"重试获取持仓失败: {str(retry_e)}")
+                    return None
             return None
     
     def init_api(self, account_info: AccountInfo):
@@ -374,7 +399,7 @@ class DataManager:
             return None
 
     def get_ticks(self, symbols):
-        """获取实���行情数据"""
+        """获取实时行情数据"""
         try:
             futures_api = self.get_futures_api()
             
@@ -403,7 +428,7 @@ class DataManager:
             if missing_symbols:
                 logger.warning(f"以下合约未找到行情数据: {', '.join(missing_symbols)}")
             
-            logger.info(f"请求的合约数量: {len(symbols)}, 匹配���的合约数量: {len(result)}")
+            logger.info(f"请求的合约数量: {len(symbols)}, 匹配的合约数量: {len(result)}")
             
             return result
             
@@ -459,7 +484,7 @@ class DataManager:
                 logger.info(f"设置杠杆成功: {symbol} {actual_leverage}x")
                 
             except Exception as e:
-                logger.error(f"设置杠���失败: {str(e)}")
+                logger.error(f"设置杠杆失败: {str(e)}")
                 return False
             
             # 3. 计算并执行分批下单
@@ -487,7 +512,7 @@ class DataManager:
                     # 根据方向设置正负
                     order_size = int(batch_size) if direction == 'long' else -int(batch_size)
                     
-                    # 创建订单对��
+                    # 创建订单对象
                     from gate_api import FuturesOrder
                     futures_order = FuturesOrder(
                         contract=contract,
@@ -551,7 +576,7 @@ class DataManager:
                 tif='ioc'  # 立即成交或取消
             )
             
-            # 创建平仓订单
+            # 创建��仓订单
             order = self.futures_api.create_futures_order(
                 settle='usdt',
                 futures_order=futures_order
@@ -776,7 +801,7 @@ class DataManager:
 
         except Exception as e:
             logger.error(f"获取价格范围数据失败: {str(e)}")
-            logger.exception("详细错误信息：")
+            logger.exception("详细��误信息：")
             raise
 
     def get_monitor_symbols(self, account_id: str) -> List[dict]:

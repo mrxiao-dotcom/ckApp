@@ -27,11 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('页面加载完成');
     initializeEventListeners();
     
-    // 如果默认显示监控列表，则加载数据
+    // 如果默认显示监控列表，则加载一次数据
     if (document.querySelector('[data-tab="monitor"]').classList.contains('active')) {
         loadMonitorList();
-    } else {
-        loadSymbolData();
     }
 });
 
@@ -305,12 +303,9 @@ function switchTab(tab) {
     
     if (tabPanel) {
         tabPanel.classList.add('active');
-        // 根据标签页类型加载不同数据
+        // 如果切换到监控标签页，加载一次数据
         if (tabId === 'monitor') {
             loadMonitorList();
-        } else if (tabId === 'filter') {
-            currentPage = 1;  // 重置页码
-            loadSymbolData();  // 加载筛选数据
         }
     }
 }
@@ -408,7 +403,7 @@ function getFilterValues() {
 // 加载品种数据
 function loadSymbolData() {
     const filters = getFilterValues();
-    console.log('加载数据��用的筛选条件:', filters);
+    console.log('加载数据用的筛选条件:', filters);
     
     const params = new URLSearchParams();
     
@@ -583,13 +578,6 @@ async function toggleMonitorActive(id, currentState) {
         }
     }
 }
-
-// 定期刷新监控列表
-setInterval(() => {
-    if (document.querySelector('[data-tab="monitor"]').classList.contains('active')) {
-        loadMonitorList();
-    }
-}, 60000); // 每分钟刷新一次
 
 // 编辑监控项
 function editMonitorItem(id) {

@@ -509,36 +509,72 @@ def oscillation_trading():
 @main_bp.route('/api/save_oscillation_monitor', methods=['POST'])
 @login_required
 def save_oscillation_monitor():
-    """保存震荡交易监控记录"""
+    """保存震荡交易监控品种"""
     try:
         data = request.json
-        account_id = data['accountId']
-        symbols = data['symbols']
+        if not data:
+            return jsonify({
+                'status': 'error',
+                'message': '无效的请求数据'
+            }), 400
+
+        account_id = data.get('accountId')
+        symbols_data = data.get('symbols', [])
         
-        for symbol_data in symbols:
-            monitor = MonitorList(
-                account_id=account_id,
-                symbol=symbol_data['symbol'],
-                allocated_money=symbol_data['allocated_money'],
-                leverage=symbol_data['leverage'],
-                take_profit=symbol_data['take_profit'],
-                strategy_type='oscillation',  # 设置为震荡交易类型
-                sync_status='waiting',
-                is_active=True
-            )
-            db.session.add(monitor)
+        if not account_id:
+            return jsonify({
+                'status': 'error',
+                'message': '未指定账户ID'
+            }), 400
             
-        db.session.commit()
-        return jsonify({
-            'status': 'success',
-            'message': '保存成功'
-        })
+        try:
+            for symbol_data in symbols_data:
+                # 检查是否已存在
+                existing = MonitorList.query.filter_by(
+                    account_id=account_id,
+                    symbol=symbol_data['symbol'],
+                    strategy_type='oscillation'
+                ).first()
+                
+                if existing:
+                    # 如果记录已存在，返回友好的错误信息
+                    return jsonify({
+                        'status': 'error',
+                        'message': f'合约 {symbol_data["symbol"]} 已在监控列表中，请先删除原记录后再添加'
+                    }), 400
+                else:
+                    # 创建新记录
+                    monitor = MonitorList(
+                        account_id=account_id,
+                        symbol=symbol_data['symbol'],
+                        allocated_money=symbol_data['allocated_money'],
+                        leverage=symbol_data['leverage'],
+                        take_profit=symbol_data['take_profit'],
+                        strategy_type='oscillation',
+                        sync_status='waiting',
+                        is_active=True
+                    )
+                    db.session.add(monitor)
+            
+            db.session.commit()
+            return jsonify({
+                'status': 'success',
+                'message': '保存成功'
+            })
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"保存震荡交易监控品种失败: {str(e)}")
+            return jsonify({
+                'status': 'error',
+                'message': '保存失败，请稍后重试'
+            }), 500
+            
     except Exception as e:
-        logger.error(f"保存震荡监控记录失败: {str(e)}")
-        db.session.rollback()
+        logger.error(f"保存震荡交易监控品种失败: {str(e)}")
         return jsonify({
             'status': 'error',
-            'message': str(e)
+            'message': '保存失败，请稍后重试'
         }), 500
 
 @main_bp.route('/api/oscillation/<int:id>', methods=['GET'])
@@ -656,7 +692,7 @@ def get_kline_data(symbol):
         if not candlesticks:
             return jsonify({'status': 'error', 'message': '获取K线数据失败'}), 400
             
-        # 处���数据
+        # 处理数据
         dates = []
         k_data = []
         volumes = []
@@ -772,7 +808,7 @@ def toggle_oscillation_monitor_active(id):
 def get_price_ranges():
     """获取价格范围数据"""
     try:
-        # 获取请求参数
+        # 获取���求参数
         account_id = request.args.get('account_id')
         strategy_type = request.args.get('strategy_type')
         page = int(request.args.get('page', 1))
@@ -955,4 +991,33 @@ def get_oscillation_monitor_symbols(account_id):
         return jsonify({
             'status': 'error',
             'message': str(e)
+        }), 500
+
+@main_bp.route('/api/monitor/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_monitor(id):
+    """删除监控记录"""
+    try:
+        # 查找监控记录
+        monitor = MonitorList.query.get_or_404(id)
+        
+        # 记录日志
+        logger.info(f"正在删除监控记录: ID={id}, Symbol={monitor.symbol}")
+        
+        # 删除记录
+        db.session.delete(monitor)
+        db.session.commit()
+        
+        logger.info(f"成功删除监控记录: {monitor.symbol}")
+        return jsonify({
+            'status': 'success',
+            'message': '删除成功'
+        })
+        
+    except Exception as e:
+        logger.error(f"删除监控记录失败: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'删除失败: {str(e)}'
         }), 500

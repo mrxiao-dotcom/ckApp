@@ -226,33 +226,54 @@ async function saveMonitorSymbol(symbol, config) {
     }
 }
 
+// 获取状态样式类
+function getBadgeClass(status) {
+    const upperStatus = (status || '').toUpperCase();
+    switch (upperStatus) {
+        case 'WAITING': return 'bg-warning';
+        case 'OPENED': return 'bg-success';
+        case 'CLOSED': return 'bg-secondary';
+        default: return 'bg-secondary';
+    }
+}
+
+function getStatusText(status) {
+    const upperStatus = (status || '').toUpperCase();
+    switch (upperStatus) {
+        case 'WAITING': return '等待开仓';
+        case 'OPENED': return '已开仓';
+        case 'CLOSED': return '已关闭';
+        default: return status || '-';
+    }
+}
+
+// 获取方向文本
+function getDirectionText(side) {
+    if (!side) return '-';
+    switch(side.toUpperCase()) {
+        case 'LONG': return '多';
+        case 'SHORT': return '空';
+        default: return side;
+    }
+}
+
 // 更新监控表格
 function updateMonitorTable(data) {
     const tbody = document.getElementById('monitor-list');
     tbody.innerHTML = '';
     
-    // 过滤掉已关闭的记录
-    const activeData = data.filter(item => item.status.toUpperCase() !== 'CLOSED');
-    
-    if (activeData.length === 0) {
+    if (!data.length) {
         tbody.innerHTML = '<tr><td colspan="12" class="text-center">暂无监控数据</td></tr>';
         return;
     }
+    
+    // 过滤掉已关闭的记录
+    const activeData = data;  // 移除过滤,显示所有记录包括closed状态
     
     activeData.forEach(item => {
         const tr = document.createElement('tr');
         tr.className = item.is_active ? '' : 'table-secondary';
         
-        // 获取方向文本
-        const getDirectionText = (side) => {
-            if (!side) return '-';
-            switch(side.toUpperCase()) {
-                case 'LONG': return '多';
-                case 'SHORT': return '空';
-                default: return side;
-            }
-        };
-
         // 添加调试日志
         console.log('行数据:', {
             symbol: item.symbol,
@@ -270,20 +291,21 @@ function updateMonitorTable(data) {
             <td class="text-right">${Number(item.allocated_money).toFixed(2)}</td>
             <td class="text-right">${item.leverage}x</td>
             <td class="text-right">${Number(item.take_profit).toFixed(2)}</td>
-            <td class="text-center"><span class="badge ${getBadgeClass(item.status)}">${getStatusText(item.status)}</span></td>
-            <td class="text-center">${item.is_active ? '是' : '否'}</td>
-            <td class="text-center">${formatDateTime(item.sync_time)}</td>
+            <td>
+                <span class="badge ${getBadgeClass(item.status)}">
+                    ${getStatusText(item.status)}
+                </span>
+            </td>
             <td class="text-center">
-                <div class="btn-group">
-                    ${item.is_active ? 
-                        `<button onclick="toggleMonitorActive(${item.id}, ${item.is_active})" class="monitor-btn">禁用</button>` : 
-                        ''
-                    }
-                    ${item.status.toUpperCase() === 'OPENED' ? 
-                        `<button onclick="showEditDialog(${item.id})" class="edit-btn">编辑</button>` : 
-                        ''
-                    }
-                </div>
+                <button onclick="deleteMonitor(${item.id})" class="delete-btn">
+                    删除
+                </button>
+            </td>
+            <td class="text-center">${formatDateTime(item.sync_time)}</td>
+            <td class="action-column">
+                <button onclick="editMonitorItem(${item.id})" class="edit-btn">
+                    编辑
+                </button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -380,21 +402,21 @@ function getFilterValues() {
 
     // 添加调试日志
     console.log('筛选条件:', {
-        原始输入: {
-            振幅: {
-                最小: inputs.minAmplitude?.value,
-                最大: inputs.maxAmplitude?.value
+        '原始输入': {
+            '振幅': {
+                '最小': inputs.minAmplitude?.value,
+                '最大': inputs.maxAmplitude?.value
             },
-            位置: {
-                最小: inputs.minPosition?.value,
-                最大: inputs.maxPosition?.value
+            '位置': {
+                '最小': inputs.minPosition?.value,
+                '最大': inputs.maxPosition?.value
             },
-            成交量: {
-                最小: inputs.minVolume?.value,
-                最大: inputs.maxVolume?.value
+            '成交量': {
+                '最小': inputs.minVolume?.value,
+                '最大': inputs.maxVolume?.value
             }
         },
-        发送参数: filters
+        '发送参数': filters
     });
 
     return filters;
@@ -474,27 +496,6 @@ function formatDateTime(dateTimeStr) {
     }
 }
 
-// 获取状态样式类
-function getBadgeClass(status) {
-    const upperStatus = (status || '').toUpperCase();
-    switch (upperStatus) {
-        case 'WAITING': return 'bg-warning';
-        case 'OPENED': return 'bg-success';
-        case 'CLOSED': return 'bg-secondary';
-        default: return 'bg-secondary';
-    }
-}
-
-function getStatusText(status) {
-    const upperStatus = (status || '').toUpperCase();
-    switch (upperStatus) {
-        case 'WAITING': return '等待开仓';
-        case 'OPENED': return '已开仓';
-        case 'CLOSED': return '已关闭';
-        default: return status || '-';
-    }
-}
-
 // 显示价格范围数据
 function displayPriceRanges(result) {
     // 更新记录数显示
@@ -555,12 +556,11 @@ function formatVolume(volume) {
 }
 
 // 切换激活状态
-async function toggleMonitorActive(id, currentState) {
-    if (confirm(`确定要${currentState ? '禁用' : '激活'}监控记录吗？`)) {
+async function toggleMonitorActive(id) {
+    if (confirm('确定要删除这条监控记录吗？')) {
         try {
-            // 修改为使用统一的 monitor API
-            const response = await fetch(`/api/monitor/${id}/toggle_active`, {
-                method: 'POST',
+            const response = await fetch(`/api/monitor/${id}`, {
+                method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Server-ID': serverInfo.serverId
@@ -571,10 +571,10 @@ async function toggleMonitorActive(id, currentState) {
             if (data.success) {
                 loadMonitorList();  // 重新加载列表
             } else {
-                alert('操作失败：' + data.message);
+                alert('删除失败：' + data.message);
             }
         } catch (error) {
-            alert('操作失败：' + error);
+            alert('删除失败：' + error);
         }
     }
 }
@@ -620,7 +620,7 @@ function showEditDialog(monitorId) {
     .then(result => {
         if (result.status === 'success') {
             originalData = result.monitor;
-            // 只显示止盈金额的输入框
+            // 显示止盈金额的输入框
             document.getElementById('editTakeProfit').value = originalData.take_profit;
             
             // 显示对话框
@@ -793,5 +793,36 @@ function changePage(page) {
     if (page < 1) return;
     currentPage = page;
     loadSymbolData();
+}
+
+// 添加删除监控记录的函数
+function deleteMonitor(id) {
+    if (confirm('确定要删除这条监控记录吗？')) {
+        fetch(`/api/monitor/${id}/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Server-ID': serverInfo.serverId
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.status === 'success') {
+                alert('删除成功');
+                loadMonitorList();  // 重新加载列表
+            } else {
+                throw new Error(result.message || '删除失败');
+            }
+        })
+        .catch(error => {
+            console.error('删除失败:', error);
+            alert('删除失败：' + error.message);
+        });
+    }
 }
 

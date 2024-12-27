@@ -475,7 +475,7 @@ function loadSymbolData() {
         console.error('请求失败:', error);
         const tableBody = document.querySelector('#priceRangeTable tbody');
         if (tableBody) {
-            tableBody.innerHTML = `<tr><td colspan="10" class="text-center">加���失败: ${error.message}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="10" class="text-center">加载失���: ${error.message}</td></tr>`;
         }
     });
 }
@@ -580,34 +580,18 @@ function updateMonitorTable(data) {
     const tbody = document.getElementById('monitor-list');
     tbody.innerHTML = '';
     
-    data.forEach(item => {
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center">暂无监控数据</td></tr>';
+        return;
+    }
+    
+    // 过滤掉已关闭的记录
+    const activeData = data;  // 移除过滤,显示所有记录包括closed状态
+    
+    activeData.forEach(item => {
         const tr = document.createElement('tr');
         tr.className = item.is_active ? '' : 'table-secondary';
         
-        // 获取方向文本
-        const getDirectionText = (side) => {
-            if (!side) return '-';
-            switch(side.toUpperCase()) {
-                case 'LONG': return '多';
-                case 'SHORT': return '空';
-                default: return side;
-            }
-        };
-
-        // 检查状态是否为"已开仓"（不区分大小写）
-        const isOpened = (status) => {
-            if (!status) return false;
-            return status.toUpperCase() === 'OPENED' || status.toLowerCase() === 'opened';
-        };
-
-        // 添加调试日志
-        console.log('行数据:', {
-            symbol: item.symbol,
-            status: item.status,  // 检查原始状态字段
-            sync_status: item.sync_status,  // 检查 sync_status 字段
-            position_side: item.position_side
-        });
-
         tr.innerHTML = `
             <td>${item.symbol}</td>
             <td class="text-right">${Number(item.last_price).toFixed(4)}</td>
@@ -618,19 +602,21 @@ function updateMonitorTable(data) {
             <td class="text-right">${Number(item.allocated_money).toFixed(2)}</td>
             <td class="text-right">${item.leverage}x</td>
             <td class="text-right">${Number(item.take_profit).toFixed(2)}</td>
-            <td class="text-center"><span class="badge ${getBadgeClass(item.status)}">${getStatusText(item.status)}</span></td>
-            <td class="text-center">${item.is_active ? '是' : '否'}</td>
-            <td class="text-center">${formatDateTime(item.sync_time)}</td>
+            <td>
+                <span class="badge ${getBadgeClass(item.status)}">
+                    ${getStatusText(item.status)}
+                </span>
+            </td>
             <td class="text-center">
-                <div class="btn-group">
-                    ${isOpened(item.status) ? 
-                        `<button onclick="showEditDialog(${item.id})" class="edit-btn">编辑</button>` : 
-                        ''
-                    }
-                    <button onclick="toggleMonitorActive(${item.id}, ${item.is_active})" class="monitor-btn">
-                        ${item.is_active ? '禁用' : '激活'}
-                    </button>
-                </div>
+                <button onclick="deleteMonitor(${item.id})" class="delete-btn">
+                    删除
+                </button>
+            </td>
+            <td class="text-center">${formatDateTime(item.sync_time)}</td>
+            <td class="action-column">
+                <button onclick="editMonitorItem(${item.id})" class="edit-btn" style="color: #fff;">
+                    编辑
+                </button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -672,7 +658,7 @@ function updatePagination(total, totalPages, currentPage) {
     const paginationContainer = document.createElement('div');
     paginationContainer.className = 'pagination';
     
-    // 计算显示的页码范围
+    // 计算显���的页码范围
     let startPage = Math.max(1, currentPage - 2);
     let endPage = Math.min(totalPages, startPage + 4);
     
@@ -737,7 +723,7 @@ function updatePagination(total, totalPages, currentPage) {
     
     paginationContainer.innerHTML = paginationHtml;
     
-    // 替��现有的分页区域
+    // 替换现有的分页区域
     const existingPagination = document.querySelector('.pagination');
     if (existingPagination) {
         existingPagination.replaceWith(paginationContainer);
@@ -913,7 +899,7 @@ function loadMonitorList() {
         const tbody = document.getElementById('monitor-list');
         tbody.innerHTML = `<tr><td colspan="12" class="text-center text-danger">加载失败: ${error.message}</td></tr>`;
         
-        // 如果是服务器错误，停止自动刷新
+        // 如��是服务器错误，停止自动刷新
         if (error.message.includes('服务器错误')) {
             stopAutoRefresh();
         }
@@ -950,3 +936,83 @@ document.addEventListener('DOMContentLoaded', function() {
         loadMonitorList();
     }
 });
+
+// 复用震荡交易中的删除函数
+function deleteMonitor(id) {
+    if (confirm('确定要删除这条监控记录吗？')) {
+        fetch(`/api/monitor/${id}/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Server-ID': serverInfo.serverId
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.status === 'success') {
+                alert('删除成功');
+                loadMonitorList();  // 重新加载列表
+            } else {
+                throw new Error(result.message || '删除失败');
+            }
+        })
+        .catch(error => {
+            console.error('删除失败:', error);
+            alert('删除失败：' + error.message);
+        });
+    }
+}
+
+// 添加状态和方向相关的辅助函数
+function getBadgeClass(status) {
+    const upperStatus = (status || '').toUpperCase();
+    switch (upperStatus) {
+        case 'WAITING': return 'bg-warning';
+        case 'OPENED': return 'bg-success';
+        case 'CLOSED': return 'bg-secondary';
+        default: return 'bg-secondary';
+    }
+}
+
+function getStatusText(status) {
+    const upperStatus = (status || '').toUpperCase();
+    switch (upperStatus) {
+        case 'WAITING': return '等待开仓';
+        case 'OPENED': return '已开仓';
+        case 'CLOSED': return '已关闭';
+        default: return status || '-';
+    }
+}
+
+function getDirectionText(side) {
+    if (!side) return '-';
+    switch(side.toUpperCase()) {
+        case 'LONG': return '多';
+        case 'SHORT': return '空';
+        default: return side;
+    }
+}
+
+// 格式化日期时间的辅助函数
+function formatDateTime(dateTimeStr) {
+    if (!dateTimeStr) return '-';
+    
+    try {
+        const date = new Date(dateTimeStr);
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const seconds = date.getSeconds().toString().padStart(2, '0');
+        
+        return `${month}-${day} ${hours}:${minutes}:${seconds}`;
+    } catch (e) {
+        console.error('日期格式化错误:', e);
+        return dateTimeStr;
+    }
+}

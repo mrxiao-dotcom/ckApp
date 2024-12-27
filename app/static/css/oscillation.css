@@ -127,7 +127,7 @@
 
 /* 表格内容溢出处理 */
 .data-table td {
-    overflow: visible;  /* 允许��容显示 */
+    overflow: visible;  /* 允许容显示 */
 }
 
 /* 确保表格容器可以横向滚动 */
@@ -154,4 +154,34 @@
 
 .filter-stats strong {
     color: #0d6efd;
+}
+
+/* 编辑按钮样式 */
+.edit-btn {
+    padding: 2px 8px;
+    background-color: #1890ff;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.edit-btn:hover {
+    background-color: #40a9ff;
+}
+
+/* 删除按钮样式 */
+.delete-btn {
+    padding: 2px 8px;
+    background-color: #ff4d4f;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.delete-btn:hover {
+    background-color: #ff7875;
 } 

@@ -323,7 +323,7 @@ def breakthrough_trading():
 def get_symbol_data():
     account_id = request.args.get('accountId')
     if not account_id:
-        return jsonify({'error': '未���定账户ID'}), 400
+        return jsonify({'error': '未指定账户ID'}), 400
         
     try:
         data_manager = DataManager(current_user.current_server)
@@ -656,7 +656,7 @@ def get_kline_data(symbol):
         if not candlesticks:
             return jsonify({'status': 'error', 'message': '获取K线数据失败'}), 400
             
-        # 处理数据
+        # 处���数据
         dates = []
         k_data = []
         volumes = []
@@ -788,7 +788,8 @@ def get_price_ranges():
             'max_volume': float(request.args.get('max_volume')) if request.args.get('max_volume') else None,
             'symbol': request.args.get('symbol'),
             'page': page,
-            'per_page': per_page
+            'per_page': per_page,
+            'exclude_status': ['CLOSED']  # 添加状态过滤，排除已关闭的记录
         }
 
         # 获取服务器ID
@@ -805,7 +806,6 @@ def get_price_ranges():
         # 获取价格范围数据
         result = data_manager.get_price_ranges(account_id, strategy_type, filters)
         
-        # 添加调试日志
         logger.debug(f"获取价格范围数据成功: {len(result.get('data', []))} 条记录")
         
         return jsonify({
@@ -823,7 +823,6 @@ def get_price_ranges():
         
     except Exception as e:
         logger.error(f"获取价格范围数据失败: {str(e)}")
-        logger.exception("详细错误信息：")  # 添加详细的错误堆栈
         return jsonify({
             'status': 'error',
             'message': f'服务器错误: {str(e)}'

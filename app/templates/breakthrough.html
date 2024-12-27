@@ -122,6 +122,11 @@
                             </div>
                         </div>
 
+                        <!-- 添加记录数显示区域 -->
+                        <div id="filter-stats" class="filter-stats" style="margin: 10px 0; padding: 5px 10px;">
+                            <!-- 这里将通过 JavaScript 动态更新 -->
+                        </div>
+
                         <!-- 数据表格 -->
                         <div class="data-table-container">
                             <table class="data-table" id="priceRangeTable">
@@ -227,7 +232,7 @@
     </div>
 
     <script>
-        // 标签页换功能
+        // 标签页切换功能
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 // 移除所有活动状态
@@ -238,6 +243,11 @@
                 tab.classList.add('active');
                 const tabId = tab.getAttribute('data-tab');
                 document.getElementById(`${tabId}-content`).classList.add('active');
+                
+                // 如果切换到监控标签页，加载一次数据
+                if (tabId === 'monitor') {
+                    loadMonitorList();
+                }
             });
         });
 
@@ -379,9 +389,6 @@
         document.querySelector('[data-tab="monitor"]').addEventListener('click', () => {
             loadMonitorList();
         });
-
-        // 定期刷新监控列表
-        setInterval(loadMonitorList, 60000); // 每分钟刷新一次
     </script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <script src="{{ url_for('static', filename='js/kline.js') }}"></script>

@@ -78,8 +78,8 @@ function switchTab(tab) {
     
     if (tabPanel) {
         tabPanel.classList.add('active');
-        // 如果切换到监控标签页，加载监控列表
-        if (tabId === 'monitor' && !isLoadingMonitorList) {
+        // 如果切换到监控标签页，加载数据
+        if (tabId === 'monitor') {
             loadMonitorList();
         }
     }
@@ -100,73 +100,87 @@ function handleFilterChange() {
     loadSymbolData();
 }
 
-// 获取筛选条件值
+// 获取筛选条件
 function getFilterValues() {
+    const inputs = {
+        minAmplitude: document.getElementById('minAmplitude'),
+        maxAmplitude: document.getElementById('maxAmplitude'),
+        minPosition: document.getElementById('minPosition'),
+        maxPosition: document.getElementById('maxPosition'),
+        minVolume: document.getElementById('minVolume'),
+        maxVolume: document.getElementById('maxVolume'),
+        symbol: document.getElementById('symbol-search')
+    };
+
     const filters = {};
-    
-    try {
-        // 获取并打印每个输入框的值
-        const inputs = {
-            minAmplitude: document.getElementById('minAmplitude'),
-            maxAmplitude: document.getElementById('maxAmplitude'),
-            minPosition: document.getElementById('minPosition'),
-            maxPosition: document.getElementById('maxPosition'),
-            minVolume: document.getElementById('minVolume'),
-            maxVolume: document.getElementById('maxVolume'),
-            symbolSearch: document.getElementById('symbol-search')
-        };
-        
-        // 打印所有输入框的值
-        Object.entries(inputs).forEach(([key, element]) => {
-            if (element) {
-                console.log(`${key}: ${element.value}`);
-            } else {
-                console.warn(`${key} 元素未找到`);
-            }
-        });
-        
-        // 振幅范围（输入为百分比，转换为小数）
-        if (inputs.minAmplitude?.value) {
-            const value = parseFloat(inputs.minAmplitude.value);
-            if (!isNaN(value)) filters.min_amplitude = value / 100;  // 转换为小数
+
+    // 处理振幅条件 - 直接使用百分比值
+    if (inputs.minAmplitude?.value) {
+        const value = parseFloat(inputs.minAmplitude.value);
+        if (!isNaN(value)) {
+            filters.min_amplitude = value;  // 直接使用百分比值
         }
-        if (inputs.maxAmplitude?.value) {
-            const value = parseFloat(inputs.maxAmplitude.value);
-            if (!isNaN(value)) filters.max_amplitude = value / 100;  // 转换为小数
-        }
-        
-        // 位置比范围（输入为百分比，转换为小数）
-        if (inputs.minPosition?.value) {
-            const value = parseFloat(inputs.minPosition.value);
-            if (!isNaN(value)) filters.min_position = value / 100;  // 转换为小数
-        }
-        if (inputs.maxPosition?.value) {
-            const value = parseFloat(inputs.maxPosition.value);
-            if (!isNaN(value)) filters.max_position = value / 100;  // 转换为小数
-        }
-        
-        // 成交额范围（输入为百万，转换为USDT）
-        if (inputs.minVolume?.value) {
-            const value = parseFloat(inputs.minVolume.value);
-            if (!isNaN(value)) filters.min_volume = value * 1000000;  // 百万转USDT
-        }
-        if (inputs.maxVolume?.value) {
-            const value = parseFloat(inputs.maxVolume.value);
-            if (!isNaN(value)) filters.max_volume = value * 1000000;  // 百万转USDT
-        }
-        
-        // 搜索关键词
-        if (inputs.symbolSearch?.value?.trim()) {
-            filters.symbol = inputs.symbolSearch.value.trim();
-        }
-        
-        console.log('构建的筛选条件:', filters);
-        return filters;
-        
-    } catch (error) {
-        console.error('获取筛选条件时出错:', error);
-        return {};
     }
+    if (inputs.maxAmplitude?.value) {
+        const value = parseFloat(inputs.maxAmplitude.value);
+        if (!isNaN(value)) {
+            filters.max_amplitude = value;  // 直接使用百分比值
+        }
+    }
+
+    // 处理位置条件 - 转换为小数
+    if (inputs.minPosition?.value) {
+        const value = parseFloat(inputs.minPosition.value);
+        if (!isNaN(value)) {
+            filters.min_position = value / 100;  // 将百分比转换为小数
+        }
+    }
+    if (inputs.maxPosition?.value) {
+        const value = parseFloat(inputs.maxPosition.value);
+        if (!isNaN(value)) {
+            filters.max_position = value / 100;  // 将百分比转换为小数
+        }
+    }
+
+    // 处理成交量条件 - 直接使用百万为单位的值
+    if (inputs.minVolume?.value) {
+        const value = parseFloat(inputs.minVolume.value);
+        if (!isNaN(value)) {
+            filters.min_volume = value;  // 直接使用百万为单位的值
+        }
+    }
+    if (inputs.maxVolume?.value) {
+        const value = parseFloat(inputs.maxVolume.value);
+        if (!isNaN(value)) {
+            filters.max_volume = value;  // 直接使用百万为单位的值
+        }
+    }
+
+    // 处理品种搜索
+    if (inputs.symbol?.value) {
+        filters.symbol = inputs.symbol.value.trim().toUpperCase();
+    }
+
+    // 添加调试日志
+    console.log('筛选条件:', {
+        原始输入: {
+            振幅: {
+                最小: inputs.minAmplitude?.value,
+                最大: inputs.maxAmplitude?.value
+            },
+            位置: {
+                最小: inputs.minPosition?.value,
+                最大: inputs.maxPosition?.value
+            },
+            成交量: {
+                最小: inputs.minVolume?.value,
+                最大: inputs.maxVolume?.value
+            }
+        },
+        发送参数: filters
+    });
+
+    return filters;
 }
 
 // 应用筛选
@@ -315,7 +329,7 @@ function showConfigDialog(symbol) {
             return;
         }
         if (!leverage || leverage < 1 || !Number.isInteger(leverage)) {
-            alert('请输入有效的杠杆倍数（必须为正整数）');
+            alert('请输入有效的杠杆倍数（必须为正整��）');
             return;
         }
         if (!takeProfit || takeProfit <= 0) {
@@ -461,13 +475,25 @@ function loadSymbolData() {
         console.error('请求失败:', error);
         const tableBody = document.querySelector('#priceRangeTable tbody');
         if (tableBody) {
-            tableBody.innerHTML = `<tr><td colspan="10" class="text-center">加载失败: ${error.message}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="10" class="text-center">加���失败: ${error.message}</td></tr>`;
         }
     });
 }
 
 // 显示价格范围数据
 function displayPriceRanges(result) {
+    // 更新记录数显示
+    const statsDiv = document.getElementById('filter-stats');
+    if (statsDiv) {
+        statsDiv.innerHTML = `
+            <span class="text-muted">
+                符合条件的记录：<strong>${result.data.length}</strong> 条
+                ${result.total ? `（共 ${result.total} 条）` : ''}
+            </span>
+        `;
+    }
+
+    // 更新表格内容
     const tableBody = document.querySelector('#priceRangeTable tbody');
     tableBody.innerHTML = '';
 
@@ -532,7 +558,7 @@ function formatVolume(volume) {
     return volume.toFixed(2);
 }
 
-// 添加滑动指示器���
+// 添加滑动指示器
 document.addEventListener('DOMContentLoaded', function() {
     const tableContainer = document.querySelector('.data-table-container');
     const scrollIndicator = document.querySelector('.scroll-indicator');
@@ -711,7 +737,7 @@ function updatePagination(total, totalPages, currentPage) {
     
     paginationContainer.innerHTML = paginationHtml;
     
-    // 替换现有的分页区域
+    // 替��现有的分页区域
     const existingPagination = document.querySelector('.pagination');
     if (existingPagination) {
         existingPagination.replaceWith(paginationContainer);
@@ -848,30 +874,19 @@ function showEditDialog(monitorId) {
 
 // 加载监控列表
 function loadMonitorList() {
-    if (!accountId) {
-        console.error('未找到账户ID');
+    if (!accountId || !serverInfo.serverId) {
+        console.error('缺少必要参数');
         return;
     }
 
-    if (!serverInfo.serverId) {
-        console.error('未找到服务器ID');
-        return;
-    }
-
-    // 如果正在加载，则不重复加载
     if (isLoadingMonitorList) {
         console.log('正在加载中，跳过重复请求');
         return;
     }
 
     isLoadingMonitorList = true;
-    console.log('正在加载监控列表', {
-        accountId,
-        serverId: serverInfo.serverId
-    });
-
+    
     fetch(`/api/monitor_symbols/${accountId}`, {
-        method: 'GET',
         headers: {
             'X-Server-ID': serverInfo.serverId,
             'Content-Type': 'application/json',
@@ -888,7 +903,6 @@ function loadMonitorList() {
     })
     .then(result => {
         if (result.status === 'success') {
-            console.log('获取数据成功:', result.data.length, '条记录');
             updateMonitorTable(result.data);
         } else {
             throw new Error(result.message || '获取数据失败');
@@ -898,9 +912,14 @@ function loadMonitorList() {
         console.error('获取监控列表错误:', error);
         const tbody = document.getElementById('monitor-list');
         tbody.innerHTML = `<tr><td colspan="12" class="text-center text-danger">加载失败: ${error.message}</td></tr>`;
+        
+        // 如果是服务器错误，停止自动刷新
+        if (error.message.includes('服务器错误')) {
+            stopAutoRefresh();
+        }
     })
     .finally(() => {
-        isLoadingMonitorList = false;  // 重置加载状态
+        isLoadingMonitorList = false;
     });
 }
 
@@ -926,7 +945,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化事件监听器
     initializeEventListeners();
     
-    // 如果默认显示监控列表，则加载数据（只加载一次）
+    // 如果默认显示监控列表，则加载一次数据
     if (document.querySelector('[data-tab="monitor"]').classList.contains('active')) {
         loadMonitorList();
     }

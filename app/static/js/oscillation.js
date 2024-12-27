@@ -322,79 +322,93 @@ function applyFilter() {
     loadSymbolData();  // 加载数据
 }
 
-// 获取筛选条件值
+// 获取筛选条件
 function getFilterValues() {
+    const inputs = {
+        minAmplitude: document.getElementById('minAmplitude'),
+        maxAmplitude: document.getElementById('maxAmplitude'),
+        minPosition: document.getElementById('minPosition'),
+        maxPosition: document.getElementById('maxPosition'),
+        minVolume: document.getElementById('minVolume'),
+        maxVolume: document.getElementById('maxVolume'),
+        symbol: document.getElementById('symbol-search')
+    };
+
     const filters = {};
-    
-    try {
-        // 获取并打印每个输入框的值
-        const inputs = {
-            minAmplitude: document.getElementById('minAmplitude'),
-            maxAmplitude: document.getElementById('maxAmplitude'),
-            minPosition: document.getElementById('minPosition'),
-            maxPosition: document.getElementById('maxPosition'),
-            minVolume: document.getElementById('minVolume'),
-            maxVolume: document.getElementById('maxVolume'),
-            symbolSearch: document.getElementById('symbol-search')
-        };
-        
-        // 打印所有输入框的值
-        Object.entries(inputs).forEach(([key, element]) => {
-            if (element) {
-                console.log(`${key}: ${element.value}`);
-            } else {
-                console.warn(`${key} 元素未找到`);
-            }
-        });
-        
-        // 振幅范围（输入为百分比，转换为小数）
-        if (inputs.minAmplitude?.value) {
-            const value = parseFloat(inputs.minAmplitude.value);
-            if (!isNaN(value)) filters.min_amplitude = value / 100;  // 转换为小数
+
+    // 处理振幅条件 - 直接使用百分比值
+    if (inputs.minAmplitude?.value) {
+        const value = parseFloat(inputs.minAmplitude.value);
+        if (!isNaN(value)) {
+            filters.min_amplitude = value;  // 直接使用百分比值
         }
-        if (inputs.maxAmplitude?.value) {
-            const value = parseFloat(inputs.maxAmplitude.value);
-            if (!isNaN(value)) filters.max_amplitude = value / 100;  // 转换为小数
-        }
-        
-        // 位置比范围（输入为百分比，转换为小数）
-        if (inputs.minPosition?.value) {
-            const value = parseFloat(inputs.minPosition.value);
-            if (!isNaN(value)) filters.min_position = value / 100;  // 转换为小数
-        }
-        if (inputs.maxPosition?.value) {
-            const value = parseFloat(inputs.maxPosition.value);
-            if (!isNaN(value)) filters.max_position = value / 100;  // 转换为小数
-        }
-        
-        // 成交额范围（输入为百万，转换为USDT）
-        if (inputs.minVolume?.value) {
-            const value = parseFloat(inputs.minVolume.value);
-            if (!isNaN(value)) filters.min_volume = value * 1000000;  // 百万转USDT
-        }
-        if (inputs.maxVolume?.value) {
-            const value = parseFloat(inputs.maxVolume.value);
-            if (!isNaN(value)) filters.max_volume = value * 1000000;  // 百万转USDT
-        }
-        
-        // 搜索关键词
-        if (inputs.symbolSearch?.value?.trim()) {
-            filters.symbol = inputs.symbolSearch.value.trim();
-        }
-        
-        console.log('构建的筛选条件:', filters);
-        return filters;
-        
-    } catch (error) {
-        console.error('获取筛选条件时出错:', error);
-        return {};
     }
+    if (inputs.maxAmplitude?.value) {
+        const value = parseFloat(inputs.maxAmplitude.value);
+        if (!isNaN(value)) {
+            filters.max_amplitude = value;  // 直接使用百分比值
+        }
+    }
+
+    // 处理位置条件 - 转换为小数
+    if (inputs.minPosition?.value) {
+        const value = parseFloat(inputs.minPosition.value);
+        if (!isNaN(value)) {
+            filters.min_position = value / 100;  // 将百分比转换为小数
+        }
+    }
+    if (inputs.maxPosition?.value) {
+        const value = parseFloat(inputs.maxPosition.value);
+        if (!isNaN(value)) {
+            filters.max_position = value / 100;  // 将百分比转换为小数
+        }
+    }
+
+    // 处理成交量条件 - 直接使用百万为单位的值
+    if (inputs.minVolume?.value) {
+        const value = parseFloat(inputs.minVolume.value);
+        if (!isNaN(value)) {
+            filters.min_volume = value;  // 直接使用百万为单位的值
+        }
+    }
+    if (inputs.maxVolume?.value) {
+        const value = parseFloat(inputs.maxVolume.value);
+        if (!isNaN(value)) {
+            filters.max_volume = value;  // 直接使用百万为单位的值
+        }
+    }
+
+    // 处理品种搜索
+    if (inputs.symbol?.value) {
+        filters.symbol = inputs.symbol.value.trim().toUpperCase();
+    }
+
+    // 添加调试日志
+    console.log('筛选条件:', {
+        原始输入: {
+            振幅: {
+                最小: inputs.minAmplitude?.value,
+                最大: inputs.maxAmplitude?.value
+            },
+            位置: {
+                最小: inputs.minPosition?.value,
+                最大: inputs.maxPosition?.value
+            },
+            成交量: {
+                最小: inputs.minVolume?.value,
+                最大: inputs.maxVolume?.value
+            }
+        },
+        发送参数: filters
+    });
+
+    return filters;
 }
 
 // 加载品种数据
 function loadSymbolData() {
     const filters = getFilterValues();
-    console.log('加载数据使用的筛选条件:', filters);
+    console.log('加载数据��用的筛选条件:', filters);
     
     const params = new URLSearchParams();
     
@@ -488,6 +502,18 @@ function getStatusText(status) {
 
 // 显示价格范围数据
 function displayPriceRanges(result) {
+    // 更新记录数显示
+    const statsDiv = document.getElementById('filter-stats');
+    if (statsDiv) {
+        statsDiv.innerHTML = `
+            <span class="text-muted">
+                符合条件的记录：<strong>${result.data.length}</strong> 条
+                ${result.total ? `（共 ${result.total} 条）` : ''}
+            </span>
+        `;
+    }
+
+    // 更新表格内容
     const tableBody = document.querySelector('#priceRangeTable tbody');
     tableBody.innerHTML = '';
 

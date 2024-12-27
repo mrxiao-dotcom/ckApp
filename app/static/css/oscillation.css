@@ -127,7 +127,7 @@
 
 /* 表格内容溢出处理 */
 .data-table td {
-    overflow: visible;  /* 允许内容显示 */
+    overflow: visible;  /* 允许��容显示 */
 }
 
 /* 确保表格容器可以横向滚动 */
@@ -144,4 +144,14 @@
 /* 表格行悬停效果 */
 .data-table tbody tr:hover {
     background-color: rgba(0, 123, 255, 0.05);
+}
+
+.filter-stats {
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.filter-stats strong {
+    color: #0d6efd;
 } 
